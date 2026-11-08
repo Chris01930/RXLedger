@@ -9,7 +9,11 @@ enum PersistenceController {
     /// The on-device store. CloudKit is intentionally off (`cloudKitDatabase: .none`);
     /// the model is CloudKit-compatible if sync is enabled later.
     static let shared: ModelContainer = {
+        #if DEBUG
         let inMemory = ProcessInfo.processInfo.arguments.contains("-inMemoryStore")
+        #else
+        let inMemory = false
+        #endif
         let config = ModelConfiguration("RxLedger", schema: schema, isStoredInMemoryOnly: inMemory, cloudKitDatabase: .none)
         do {
             let container = try ModelContainer(for: schema, configurations: [config])

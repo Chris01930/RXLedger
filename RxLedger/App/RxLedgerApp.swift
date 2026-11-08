@@ -31,7 +31,11 @@ final class AppState {
 
     init() {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-scanImagePath") { selectedTab = .capture }
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-scanImagePath") { selectedTab = .capture }
+        if let i = args.firstIndex(of: "-startTab"), i + 1 < args.count {
+            selectedTab = ["medications": .medications, "capture": .capture, "settings": .settings][args[i + 1]] ?? .fills
+        }
         #endif
     }
 
