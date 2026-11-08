@@ -89,9 +89,12 @@ struct PrivateSampleTests {
         let url = try #require(Self.images.first)
         let photo = try #require(UIImage(contentsOfFile: url.path))
         let r = try await OCRService().supplement(existingImage: nil, existingLines: [], with: photo)
+        // Written to a subfolder so these crops are never picked up as label photos.
+        let output = Self.folder.appendingPathComponent("Output")
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         for key in [FieldKey.tp, .daysSupply, .ndc, .patientName] {
             let crop = try #require(r.contextCrops[key], "no context crop for \(key)")
-            try crop.jpegData(compressionQuality: 0.8)?.write(to: Self.folder.appendingPathComponent("context-\(key.rawValue).jpg"))
+            try crop.jpegData(compressionQuality: 0.8)?.write(to: output.appendingPathComponent("context-\(key.rawValue).jpg"))
         }
     }
 }
