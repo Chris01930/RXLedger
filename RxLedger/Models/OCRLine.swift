@@ -20,12 +20,16 @@ struct OCRLine: Codable, Equatable, Hashable {
         let rows = text.components(separatedBy: .newlines)
         let count = max(rows.count, 1)
         let height = 1.0 / Double(count)
+        // Treat the text as monospaced so leading spaces preserve column positions.
+        let maxLen = Double(max(rows.map(\.count).max() ?? 1, 1))
         return rows.enumerated().compactMap { index, row in
             let trimmed = row.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty else { return nil }
+            let leading = Double(row.prefix(while: { $0 == " " }).count)
             let y = 1.0 - Double(index + 1) * height
             return OCRLine(text: trimmed, confidence: 1.0,
-                           boundingBox: CGRect(x: 0.02, y: y, width: 0.96, height: height * 0.8))
+                           boundingBox: CGRect(x: leading / maxLen, y: y,
+                                               width: Double(trimmed.count) / maxLen, height: height * 0.8))
         }
     }
 

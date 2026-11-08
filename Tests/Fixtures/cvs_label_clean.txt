@@ -1,0 +1,44 @@
+NE 116
+Promised: 6/23/26, 3:00 PM
+# Scripts: 02
+ReadyFill
+2581363010623
+Sample, Alex J
+12 Example St
+Boston, MA 02110
+DOB: 4/80   TEL: (617) 555-0142
+Prescription Information
+IC METFORMIN HCL
+500 MG TABLET
+Common brand(s): Glucophage
+Take 1 tablet by mouth every day
+with evening meal
+Morning   Midday   Evening   Bedtime
+                      1
+Important Information
+• Take with food
+• Do not drink alcohol while taking
+  this medication
+• May cause stomach upset
+Receipt & Refill Information
+CVS Pharmacy
+100 Main St
+Boston, MA 02110
+STORE#: 1234   STORE TEL: (617) 555-0100
+RX: 2581363 01  RF
+INSURANCE INFORMATION:
+CAREMARK
+BIN 004336  TP: ADV  GR: RX1234
+AUTH#: 123456789
+RETAIL PRICE: $14.99
+NDC: 00093-1048-01   DAW: 0
+QTY: 30 EA   CAP: Safety
+MFR PKG: No   REFILL: 5 Refills
+MFR: TEVA USA
+PRSCBR: Jordan Lee
+DAYS SUPPLY: 30   DATE FILLED: 6/23/26
+AMOUNT DUE: $0.00
+Notes from the Pharmacy
+DRUG STORAGE TYPE: FAST MOVER
+DATE: 6/23/26
+TP: ADV

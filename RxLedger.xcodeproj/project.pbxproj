@@ -12,13 +12,19 @@
 		0F2655D45F2750452A8D9C4E /* MedicationDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC46C432E3A2F3AEBC2F8E0E /* MedicationDetailView.swift */; };
 		1353AA80CC6466260ADC8461 /* FillEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EC542604205F29E262A07B /* FillEditorView.swift */; };
 		1E04F37D9B2B83445DC20794 /* LabelFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37D004FDD36B7753C4A487DD /* LabelFormat.swift */; };
+		2613BCFABC25B6A80C59130E /* OCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 045BFF4E34BC01454BA8B8BB /* OCRService.swift */; };
+		26F87A70954BE1DFEF4F1359 /* ImageProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B81AA390647ED58AEBAD29 /* ImageProcessing.swift */; };
 		28FAFF62481AFCA0FCD07CB6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 80E7E28F693EBA9726619476 /* Assets.xcassets */; };
+		320384EDC12C9A69E6BE7C5D /* CVSLabelParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C91FAA48D729A983FC3D05A /* CVSLabelParser.swift */; };
+		32885602EDF794333AB3CACC /* cvs_label_clean.txt in Resources */ = {isa = PBXBuildFile; fileRef = ED606B951602C60094932CB1 /* cvs_label_clean.txt */; };
+		3A1FF97B49A65BF936371DA6 /* cvs_label_see_directions.txt in Resources */ = {isa = PBXBuildFile; fileRef = 67AABB948F8620B67AB5C4E1 /* cvs_label_see_directions.txt */; };
 		3DC9C1AA23C386F2D4D62F75 /* Badges.swift in Sources */ = {isa = PBXBuildFile; fileRef = F743253439A21977492A6925 /* Badges.swift */; };
 		4E066EE6281573D2C0F7F0A1 /* DedupeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17DFCDECA88A8A66BC2F4DA /* DedupeService.swift */; };
 		512B5B46B0E41E46DDB9ED5F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48B322D42490B76B255F0675 /* RootView.swift */; };
 		51D927B5ED82BA2E4280CEDB /* SampleData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FBF275C732B9E3A93AD90ED /* SampleData.swift */; };
 		56B0E687BCF1FD5B0557E69B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C208555497C6BDDC28E15C0A /* SettingsView.swift */; };
 		5C1A36FA2F00F10C0AC7668A /* FillDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = D218AD6BF3805EDD12963AC9 /* FillDraft.swift */; };
+		62BA0522CABF5F5B0085DE72 /* cvs_label_garbled.txt in Resources */ = {isa = PBXBuildFile; fileRef = A6CB75822C0DC30D3CD7DB20 /* cvs_label_garbled.txt */; };
 		65990A778D24931687938A23 /* FillRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C989ED062182B7664A2318CC /* FillRepository.swift */; };
 		8A526BDC4A75E1CFFCCE5F1B /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F12F2E7B5F9BCCF275D6A09 /* CaptureView.swift */; };
 		93B9F870FB6EDBAF0EAFA88B /* FillsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E69654ADA157B8C22F20E480 /* FillsListView.swift */; };
@@ -27,7 +33,9 @@
 		A3415EDE1F36347A3903482A /* AppLockManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15B63C4833E131076D3FF2F /* AppLockManager.swift */; };
 		BB6DDD863DE78E4F7C736CD7 /* FillDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3064491B73D7860FC997F7 /* FillDetailView.swift */; };
 		BC046DAF0369DC17CAD03058 /* FillFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF76FD9079074936166F98FD /* FillFormView.swift */; };
+		D022C1647ABA430667D88912 /* CVSLabelParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5291EF72C7118227C8984F24 /* CVSLabelParserTests.swift */; };
 		D7E41FFC2745EA0F424B86D2 /* RxLedgerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51738FF4BA27ADA52F54485B /* RxLedgerApp.swift */; };
+		E1135C7264DFAB02C6B17333 /* NDCAndDedupeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA74E5C2B1117E8E58ED4D8C /* NDCAndDedupeTests.swift */; };
 		E90FEAE2CC89D4F1374BAE9B /* OCRLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 190469E65A2600EDE29A44A6 /* OCRLine.swift */; };
 		EFA2C4167D7173B493DFF49F /* PersistenceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED82F94D27348878953BF7CB /* PersistenceController.swift */; };
 		FCC33087627AB668FBD19D88 /* RelatedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7940CA3C777AAEE424562C62 /* RelatedModels.swift */; };
@@ -44,14 +52,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		045BFF4E34BC01454BA8B8BB /* OCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRService.swift; sourceTree = "<group>"; };
 		190469E65A2600EDE29A44A6 /* OCRLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRLine.swift; sourceTree = "<group>"; };
 		37D004FDD36B7753C4A487DD /* LabelFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabelFormat.swift; sourceTree = "<group>"; };
 		48B322D42490B76B255F0675 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		4B3064491B73D7860FC997F7 /* FillDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FillDetailView.swift; sourceTree = "<group>"; };
 		51738FF4BA27ADA52F54485B /* RxLedgerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RxLedgerApp.swift; sourceTree = "<group>"; };
+		5291EF72C7118227C8984F24 /* CVSLabelParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CVSLabelParserTests.swift; sourceTree = "<group>"; };
 		5FBF275C732B9E3A93AD90ED /* SampleData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleData.swift; sourceTree = "<group>"; };
 		61DFCE6C58301A1B69BFDF4D /* RxLedgerTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RxLedgerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		61F7B62EE7939C86D1A5A53D /* FieldKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FieldKey.swift; sourceTree = "<group>"; };
+		67AABB948F8620B67AB5C4E1 /* cvs_label_see_directions.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = cvs_label_see_directions.txt; sourceTree = "<group>"; };
 		6F12F2E7B5F9BCCF275D6A09 /* CaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
 		7054BC13AADF71B5BCD1A76F /* Fill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Fill.swift; sourceTree = "<group>"; };
 		710939D3B528DB87E37E8BA0 /* MedicationsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationsListView.swift; sourceTree = "<group>"; };
@@ -60,7 +71,10 @@
 		81251AD4A2C55CF4ACFCABDE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		87B7BED30F1AED6C4CD2EAF3 /* NDC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NDC.swift; sourceTree = "<group>"; };
 		9071E158F8849BEACB69D238 /* RxLedger.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RxLedger.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9C91FAA48D729A983FC3D05A /* CVSLabelParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CVSLabelParser.swift; sourceTree = "<group>"; };
 		A15B63C4833E131076D3FF2F /* AppLockManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockManager.swift; sourceTree = "<group>"; };
+		A6CB75822C0DC30D3CD7DB20 /* cvs_label_garbled.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = cvs_label_garbled.txt; sourceTree = "<group>"; };
+		B1B81AA390647ED58AEBAD29 /* ImageProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageProcessing.swift; sourceTree = "<group>"; };
 		B7EC542604205F29E262A07B /* FillEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FillEditorView.swift; sourceTree = "<group>"; };
 		BC46C432E3A2F3AEBC2F8E0E /* MedicationDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationDetailView.swift; sourceTree = "<group>"; };
 		C17DFCDECA88A8A66BC2F4DA /* DedupeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DedupeService.swift; sourceTree = "<group>"; };
@@ -68,7 +82,9 @@
 		C989ED062182B7664A2318CC /* FillRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FillRepository.swift; sourceTree = "<group>"; };
 		CF76FD9079074936166F98FD /* FillFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FillFormView.swift; sourceTree = "<group>"; };
 		D218AD6BF3805EDD12963AC9 /* FillDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FillDraft.swift; sourceTree = "<group>"; };
+		DA74E5C2B1117E8E58ED4D8C /* NDCAndDedupeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NDCAndDedupeTests.swift; sourceTree = "<group>"; };
 		E69654ADA157B8C22F20E480 /* FillsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FillsListView.swift; sourceTree = "<group>"; };
+		ED606B951602C60094932CB1 /* cvs_label_clean.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = cvs_label_clean.txt; sourceTree = "<group>"; };
 		ED82F94D27348878953BF7CB /* PersistenceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceController.swift; sourceTree = "<group>"; };
 		F743253439A21977492A6925 /* Badges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Badges.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -112,10 +128,13 @@
 		2434448DB700374EB04A1D69 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				9C91FAA48D729A983FC3D05A /* CVSLabelParser.swift */,
 				C17DFCDECA88A8A66BC2F4DA /* DedupeService.swift */,
 				C989ED062182B7664A2318CC /* FillRepository.swift */,
+				B1B81AA390647ED58AEBAD29 /* ImageProcessing.swift */,
 				37D004FDD36B7753C4A487DD /* LabelFormat.swift */,
 				87B7BED30F1AED6C4CD2EAF3 /* NDC.swift */,
+				045BFF4E34BC01454BA8B8BB /* OCRService.swift */,
 				ED82F94D27348878953BF7CB /* PersistenceController.swift */,
 			);
 			path = Services;
@@ -193,8 +212,21 @@
 		B3769797D9F6D18A00594745 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				5291EF72C7118227C8984F24 /* CVSLabelParserTests.swift */,
+				DA74E5C2B1117E8E58ED4D8C /* NDCAndDedupeTests.swift */,
+				E869CE65B5A484C525E92F1D /* Fixtures */,
 			);
 			path = Tests;
+			sourceTree = "<group>";
+		};
+		E869CE65B5A484C525E92F1D /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				ED606B951602C60094932CB1 /* cvs_label_clean.txt */,
+				A6CB75822C0DC30D3CD7DB20 /* cvs_label_garbled.txt */,
+				67AABB948F8620B67AB5C4E1 /* cvs_label_see_directions.txt */,
+			);
+			path = Fixtures;
 			sourceTree = "<group>";
 		};
 		F26AF4ED1066AE1646B89E87 /* Editor */ = {
@@ -245,6 +277,7 @@
 			buildConfigurationList = A9D24ABE0D81F6EA3FB3C319 /* Build configuration list for PBXNativeTarget "RxLedgerTests" */;
 			buildPhases = (
 				CE1B25F3C3BCA35853B2577D /* Sources */,
+				6BDB6CBFF4B1CDED664852B9 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -301,6 +334,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6BDB6CBFF4B1CDED664852B9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				32885602EDF794333AB3CACC /* cvs_label_clean.txt in Resources */,
+				62BA0522CABF5F5B0085DE72 /* cvs_label_garbled.txt in Resources */,
+				3A1FF97B49A65BF936371DA6 /* cvs_label_see_directions.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -308,6 +351,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D022C1647ABA430667D88912 /* CVSLabelParserTests.swift in Sources */,
+				E1135C7264DFAB02C6B17333 /* NDCAndDedupeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -317,6 +362,7 @@
 			files = (
 				A3415EDE1F36347A3903482A /* AppLockManager.swift in Sources */,
 				3DC9C1AA23C386F2D4D62F75 /* Badges.swift in Sources */,
+				320384EDC12C9A69E6BE7C5D /* CVSLabelParser.swift in Sources */,
 				8A526BDC4A75E1CFFCCE5F1B /* CaptureView.swift in Sources */,
 				4E066EE6281573D2C0F7F0A1 /* DedupeService.swift in Sources */,
 				03AA7F85A0977C4815676E32 /* FieldKey.swift in Sources */,
@@ -327,11 +373,13 @@
 				BC046DAF0369DC17CAD03058 /* FillFormView.swift in Sources */,
 				65990A778D24931687938A23 /* FillRepository.swift in Sources */,
 				93B9F870FB6EDBAF0EAFA88B /* FillsListView.swift in Sources */,
+				26F87A70954BE1DFEF4F1359 /* ImageProcessing.swift in Sources */,
 				1E04F37D9B2B83445DC20794 /* LabelFormat.swift in Sources */,
 				0F2655D45F2750452A8D9C4E /* MedicationDetailView.swift in Sources */,
 				A18D254997DAA5E5FA18CB31 /* MedicationsListView.swift in Sources */,
 				9D8F6E02DDD34A85CBC2E813 /* NDC.swift in Sources */,
 				E90FEAE2CC89D4F1374BAE9B /* OCRLine.swift in Sources */,
+				2613BCFABC25B6A80C59130E /* OCRService.swift in Sources */,
 				EFA2C4167D7173B493DFF49F /* PersistenceController.swift in Sources */,
 				FCC33087627AB668FBD19D88 /* RelatedModels.swift in Sources */,
 				512B5B46B0E41E46DDB9ED5F /* RootView.swift in Sources */,

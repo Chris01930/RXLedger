@@ -1,0 +1,31 @@
+NE 042
+Promised: 7/1/26, 11:30 AM
+# Scripts: 1
+Sample, Alex J
+12 Example St
+Boston, MA 02110
+DOB: 4/80
+TEL: (617) 555-0142
+Prescription Information
+PREDNISONE 10 MG TABLET
+Common brand(s): Deltasone,
+Rayos
+Take as directed on the taper schedule
+Morning   Midday   Evening   Bedtime
+SEE DIRECTIONS
+Important Information
+• Take with food
+Receipt & Refill Information
+CVS Pharmacy
+100 Main St
+Boston, MA 02110
+STORE#: 1234
+RX: 2611002
+NDC: 0054-4728-25
+QTY: 21 EA
+REFILL: No Refills
+DAYS SUPPLY: 6
+DATE FILLED: 7/1/26
+AMOUNT DUE: $3.75
+Notes from the Pharmacy
+Call if you have questions about the taper.
