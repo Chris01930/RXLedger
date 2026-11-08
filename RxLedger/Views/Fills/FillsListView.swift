@@ -104,6 +104,13 @@ struct FillsListView: View {
                 }
             }
             .navigationTitle("Fills")
+            #if DEBUG
+            .task {
+                if ProcessInfo.processInfo.arguments.contains("-openFirstFill"), let first = visibleFills.first {
+                    appState.fillsPath = [first]
+                }
+            }
+            #endif
             .navigationDestination(for: Fill.self) { fill in
                 FillDetailView(fill: fill)
             }

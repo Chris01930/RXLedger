@@ -28,6 +28,7 @@
 		5C1A36FA2F00F10C0AC7668A /* FillDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = D218AD6BF3805EDD12963AC9 /* FillDraft.swift */; };
 		62BA0522CABF5F5B0085DE72 /* cvs_label_garbled.txt in Resources */ = {isa = PBXBuildFile; fileRef = A6CB75822C0DC30D3CD7DB20 /* cvs_label_garbled.txt */; };
 		65990A778D24931687938A23 /* FillRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C989ED062182B7664A2318CC /* FillRepository.swift */; };
+		81957FAB0BDA574C25938213 /* LabelReconstructionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB8C61108A352AF4C4ABF01B /* LabelReconstructionView.swift */; };
 		8A526BDC4A75E1CFFCCE5F1B /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F12F2E7B5F9BCCF275D6A09 /* CaptureView.swift */; };
 		93B9F870FB6EDBAF0EAFA88B /* FillsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E69654ADA157B8C22F20E480 /* FillsListView.swift */; };
 		9BC43968FD5CC00D4691AD83 /* PhotoViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64820D35980A8A3602886293 /* PhotoViewer.swift */; };
@@ -95,6 +96,7 @@
 		ED606B951602C60094932CB1 /* cvs_label_clean.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = cvs_label_clean.txt; sourceTree = "<group>"; };
 		ED82F94D27348878953BF7CB /* PersistenceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceController.swift; sourceTree = "<group>"; };
 		F743253439A21977492A6925 /* Badges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Badges.swift; sourceTree = "<group>"; };
+		FB8C61108A352AF4C4ABF01B /* LabelReconstructionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabelReconstructionView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -206,6 +208,7 @@
 			isa = PBXGroup;
 			children = (
 				4B3064491B73D7860FC997F7 /* FillDetailView.swift */,
+				FB8C61108A352AF4C4ABF01B /* LabelReconstructionView.swift */,
 			);
 			path = Detail;
 			sourceTree = "<group>";
@@ -389,6 +392,7 @@
 				93B9F870FB6EDBAF0EAFA88B /* FillsListView.swift in Sources */,
 				26F87A70954BE1DFEF4F1359 /* ImageProcessing.swift in Sources */,
 				1E04F37D9B2B83445DC20794 /* LabelFormat.swift in Sources */,
+				81957FAB0BDA574C25938213 /* LabelReconstructionView.swift in Sources */,
 				0F2655D45F2750452A8D9C4E /* MedicationDetailView.swift in Sources */,
 				A18D254997DAA5E5FA18CB31 /* MedicationsListView.swift in Sources */,
 				9D8F6E02DDD34A85CBC2E813 /* NDC.swift in Sources */,
