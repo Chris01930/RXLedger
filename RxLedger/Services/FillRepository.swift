@@ -52,12 +52,17 @@ struct FillRepository {
     }
 
     /// Applies user edits to an existing fill.
-    func update(_ fill: Fill, with draft: FillDraft) throws {
+    /// - Parameters:
+    ///   - ocr: OCR artifacts to store when a photo was added while editing (replaces the stored text,
+    ///     lines and image with the combined versions).
+    ///   - ocrFilledKeys: fields filled from that photo — not counted as manual edits.
+    func update(_ fill: Fill, with draft: FillDraft, ocr: OCRPayload? = nil, ocrFilledKeys: Set<FieldKey> = []) throws {
         let before = fill.draft()
         fill.apply(draft)
-        if fill.source == .scan, !before.changedKeys(comparedTo: draft).isEmpty {
+        if fill.source == .scan, !before.changedKeys(comparedTo: draft).subtracting(ocrFilledKeys).isEmpty {
             fill.wasEditedAfterScan = true
         }
+        if let ocr { attach(ocr, to: fill) }
         link(fill)
         cleanupOrphanMedications()
         try context.save()

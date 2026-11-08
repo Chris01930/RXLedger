@@ -46,6 +46,7 @@
 		E3E61B9B5F366CD333C683A4 /* PrivateSampleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A2C70E00C6839D8D9FA0196 /* PrivateSampleTests.swift */; };
 		E8AC45095F64324E026A5A54 /* ExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FF909E4407B30DDD00161C2 /* ExportService.swift */; };
 		E90FEAE2CC89D4F1374BAE9B /* OCRLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 190469E65A2600EDE29A44A6 /* OCRLine.swift */; };
+		EC3F903A923339020A823FEB /* SupplementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 051430AC1B731EC2108F449E /* SupplementTests.swift */; };
 		EFA2C4167D7173B493DFF49F /* PersistenceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED82F94D27348878953BF7CB /* PersistenceController.swift */; };
 		F6CD429D690D6EE2BBAED869 /* OCRPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63834DF5A340988FBAF8A6EF /* OCRPipelineTests.swift */; };
 		FCC33087627AB668FBD19D88 /* RelatedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7940CA3C777AAEE424562C62 /* RelatedModels.swift */; };
@@ -63,6 +64,7 @@
 
 /* Begin PBXFileReference section */
 		045BFF4E34BC01454BA8B8BB /* OCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRService.swift; sourceTree = "<group>"; };
+		051430AC1B731EC2108F449E /* SupplementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupplementTests.swift; sourceTree = "<group>"; };
 		190469E65A2600EDE29A44A6 /* OCRLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRLine.swift; sourceTree = "<group>"; };
 		2D0A456809BE744E835B32A9 /* CVSLabelParser+Prepare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CVSLabelParser+Prepare.swift"; sourceTree = "<group>"; };
 		37D004FDD36B7753C4A487DD /* LabelFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabelFormat.swift; sourceTree = "<group>"; };
@@ -243,6 +245,7 @@
 				63834DF5A340988FBAF8A6EF /* OCRPipelineTests.swift */,
 				5A2C70E00C6839D8D9FA0196 /* PrivateSampleTests.swift */,
 				914D81AABF07E689B72C67C3 /* RealLayoutTests.swift */,
+				051430AC1B731EC2108F449E /* SupplementTests.swift */,
 				E869CE65B5A484C525E92F1D /* Fixtures */,
 			);
 			path = Tests;
@@ -392,6 +395,7 @@
 				F6CD429D690D6EE2BBAED869 /* OCRPipelineTests.swift in Sources */,
 				E3E61B9B5F366CD333C683A4 /* PrivateSampleTests.swift in Sources */,
 				D7E7CDD6A4DCBE34329A8F35 /* RealLayoutTests.swift in Sources */,
+				EC3F903A923339020A823FEB /* SupplementTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -478,7 +482,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = Z4K4WDMMZ6;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -581,7 +585,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = Z4K4WDMMZ6;
 				ENABLE_NS_ASSERTIONS = NO;

@@ -1,6 +1,7 @@
 import SwiftData
 import SwiftUI
 import UIKit
+import VisionKit
 
 struct FillDetailView: View {
     @Environment(AppState.self) private var appState
@@ -9,6 +10,7 @@ struct FillDetailView: View {
     let fill: Fill
 
     @State private var editing = false
+    @State private var editStartsWith: PhotoSource?
     @State private var reparse: ReparseSession?
     @State private var showingPhoto = false
     @State private var confirmingDelete = false
@@ -54,8 +56,10 @@ struct FillDetailView: View {
         }
         .sheet(isPresented: $editing) {
             NavigationStack {
-                FillEditorView(title: "Edit Fill", initialDraft: fill.draft(), purpose: .update(fill)) { result in
+                FillEditorView(title: editStartsWith == nil ? "Edit Fill" : "Add Photo",
+                               initialDraft: fill.draft(), purpose: .update(fill), startWith: editStartsWith) { result in
                     editing = false
+                    editStartsWith = nil
                     if case .viewExisting(let other) = result { appState.open(other) }
                 }
             }
@@ -152,6 +156,26 @@ struct FillDetailView: View {
                 }
                 .buttonStyle(.bordered)
             }
+            Menu {
+                Button {
+                    editStartsWith = .camera
+                    editing = true
+                } label: {
+                    Label("Take Photo", systemImage: "camera")
+                }
+                .disabled(!VNDocumentCameraViewController.isSupported)
+                Button {
+                    editStartsWith = .library
+                    editing = true
+                } label: {
+                    Label("Choose Photo", systemImage: "photo.on.rectangle")
+                }
+            } label: {
+                Label("Add Photo for Missing Fields", systemImage: "plus.viewfinder")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityHint("Reads another photo of this label, fills in fields that are still blank, and lets you review before saving")
             Button {
                 editing = true
             } label: {

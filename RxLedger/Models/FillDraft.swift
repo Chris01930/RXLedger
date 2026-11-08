@@ -98,6 +98,19 @@ struct FillDraft: Equatable, Codable {
         return issues
     }
 
+    /// Copies parsed values into fields that are still blank (never overwrites). Returns the keys filled,
+    /// in form order.
+    mutating func fillBlanks(from parse: ParseResult) -> [FieldKey] {
+        var filled: [FieldKey] = []
+        for key in FieldKey.allCases {
+            guard let value = parse.fields[key]?.value, text(key) == nil,
+                  !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+            self[key] = value
+            filled.append(key)
+        }
+        return filled
+    }
+
     /// Keys whose values differ between two drafts.
     func changedKeys(comparedTo other: FillDraft) -> Set<FieldKey> {
         Set(FieldKey.allCases.filter { self.text($0) != other.text($0) })

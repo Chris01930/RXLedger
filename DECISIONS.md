@@ -74,6 +74,12 @@ Choices I made where the spec left room. Each is easy to revisit.
   - The value seen in the most photos wins, weighted by confidence. Readings within 3% of a photo's top/bottom edge count 30% less, since they're the likeliest to be cut off. Near-ties go to the longer value; for bullets and notes, the most complete reading wins.
   - The photos are stacked into one tall image for the record (up to 1600 px per photo, 3 photos max at full size), and OCR lines carry a `page` tag so *Re-run Parser* re-merges correctly.
   - I chose this over stitching the photos into one seamless image: aligning hand-held close-ups well enough for OCR is fragile and slow on-device, while merging per-photo results is robust to any overlap.
+- **Add Photo for Missing Fields** (scan review, manual entry, Edit, and a button on the fill detail screen):
+  - The extra photo is OCR'd on its own and only fields that are still blank are filled; nothing already read or typed is overwritten. The note lists what was filled, and those fields get confidence tints and crops from the new photo.
+  - Fields filled this way count as OCR, not manual edits, so they don't set `wasEditedAfterScan`.
+  - The photo is stacked under the stored image, and its OCR lines are added with the next `page` tag, so *Re-run Parser* sees every photo.
+  - From the record, nothing is saved until you review and tap Save.
+  - I didn't let a new photo replace low-confidence values automatically. That would silently change data you've already reviewed, so to correct a wrong value you edit it.
 - Expect further tuning as more real labels come in. Each scan keeps the raw OCR lines with bounding boxes, so *Re-run Parser* will apply future parser improvements to existing records. Each scan keeps the raw OCR lines with bounding boxes, so *Re-run Parser* will apply future parser improvements to existing records.
 - *Re-run Parser* opens the review form with the new values and doesn't save until you confirm. Any manual edits you made earlier are replaced by what you save there.
 

@@ -100,6 +100,70 @@ struct OCRService {
                           annotations: annotations)
     }
 
+    /// Result of reading an extra photo for an existing scan or record.
+    struct SupplementResult {
+        /// What the new photo alone yielded (boxes in the composite's coordinates).
+        var parse: ParseResult
+        /// Existing + new OCR lines, page-tagged, in composite coordinates.
+        var lines: [OCRLine]
+        /// Existing image with the new photo stacked underneath.
+        var image: UIImage
+        var imageData: Data?
+        var crops: [FieldKey: UIImage]
+        /// Confidence of all photos re-parsed together.
+        var combinedConfidence: Double?
+
+        var ocrPayload: OCRPayload {
+            OCRPayload(rawText: OCRLine.joinedText(lines), lines: lines, confidence: combinedConfidence, imageData: imageData)
+        }
+    }
+
+    /// Reads one more photo of a label that's already been scanned (or entered), and stacks it with the
+    /// existing image so all OCR text stays re-parsable together.
+    func supplement(existingImage: UIImage?, existingLines: [OCRLine], with photo: UIImage) async throws -> SupplementResult {
+        let page = try await process(photo)
+        guard let newImage = page.image.cgImage else { throw OCRError.unreadableImage }
+        let existing = existingImage.flatMap { ImageProcessing.normalizedOrientation($0).cgImage }
+        guard let (composite, slots) = ImageProcessing.stackVertically([existing, newImage].compactMap { $0 }) else {
+            throw OCRError.unreadableImage
+        }
+        let newSlot = slots.last!
+
+        var lines: [OCRLine] = []
+        if !existingLines.isEmpty {
+            // Existing lines keep their page tags (single photos become page 0).
+            lines = existingLines.map { l in
+                OCRLine(text: l.text, confidence: l.confidence,
+                        boundingBox: existing != nil ? ImageProcessing.map(l.boundingBox, into: slots[0]) : l.boundingBox,
+                        page: l.page ?? 0)
+            }
+        }
+        let newPage = existingLines.isEmpty ? nil : (existingLines.compactMap(\.page).max() ?? 0) + 1
+        lines += page.lines.map {
+            OCRLine(text: $0.text, confidence: $0.confidence, boundingBox: ImageProcessing.map($0.boundingBox, into: newSlot), page: newPage)
+        }
+
+        var parse = page.parse
+        parse.fields = parse.fields.mapValues { field in
+            var f = field
+            f.boxes = field.boxes.map { ImageProcessing.map($0, into: newSlot) }
+            return f
+        }
+        var crops: [FieldKey: UIImage] = [:]
+        for key in parse.fields.keys {
+            if let box = parse.boundingBox(for: key), let crop = ImageProcessing.crop(composite, normalizedRect: box) {
+                crops[key] = crop
+            }
+        }
+        let pageCount = Set(lines.map { $0.page ?? 0 }).count
+        return SupplementResult(parse: parse,
+                                lines: lines,
+                                image: UIImage(cgImage: composite),
+                                imageData: ImageProcessing.jpegForStorage(composite, maxDimension: 1600 * CGFloat(min(max(pageCount, 1), 3))),
+                                crops: crops,
+                                combinedConfidence: parser.parse(pagedLines: lines).meanConfidence)
+    }
+
     /// Raw Vision text recognition.
     func recognize(_ cgImage: CGImage) async throws -> Recognition {
         try await withCheckedThrowingContinuation { continuation in
