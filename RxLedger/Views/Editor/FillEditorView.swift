@@ -303,6 +303,7 @@ struct FillEditorView: View {
                     for var c in FieldConflict.detect(draft: draft, baseline: baseline, previous: result.previous, new: result.parse) {
                         c.currentCrop = result.previousCrops[c.key] ?? annotations?.crops[c.key]
                         c.newCrop = result.crops[c.key]
+                        c.newContext = result.contextCrops[c.key]
                         if let i = found.firstIndex(where: { $0.key == c.key }) {
                             if c.newConfidence > found[i].newConfidence { found[i] = c }
                         } else {

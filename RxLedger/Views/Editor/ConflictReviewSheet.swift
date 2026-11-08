@@ -9,6 +9,13 @@ struct ConflictReviewSheet: View {
     let onApply: (Set<FieldKey>) -> Void
 
     @State private var useNew: Set<FieldKey>
+    @State private var zoom: ZoomItem?
+
+    private struct ZoomItem: Identifiable {
+        let id = UUID()
+        let image: UIImage
+        let title: String
+    }
 
     init(conflicts: [FieldConflict], onApply: @escaping (Set<FieldKey>) -> Void) {
         self.conflicts = conflicts
@@ -33,6 +40,33 @@ struct ConflictReviewSheet: View {
                 }
                 ForEach(conflicts) { c in
                     Section(c.key.label) {
+                        if let image = c.newContext ?? c.newCrop {
+                            Button {
+                                zoom = ZoomItem(image: image, title: c.key.label)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("In the new photo — outlined is what was read")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                    Image(uiImage: image)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(maxWidth: .infinity, maxHeight: 130)
+                                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(.secondary.opacity(0.4)))
+                                        .overlay(alignment: .bottomTrailing) {
+                                            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                                .font(.caption.weight(.bold))
+                                                .padding(6)
+                                                .background(.ultraThinMaterial, in: Circle())
+                                                .padding(6)
+                                        }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Photo of \(c.key.label) in the new scan")
+                            .accessibilityHint("Opens it full screen to zoom")
+                        }
                         option(selected: !useNew.contains(c.key),
                                title: "Current",
                                value: c.currentValue,
@@ -46,7 +80,7 @@ struct ConflictReviewSheet: View {
                                value: c.newValue,
                                detail: "New photo · \(Int((c.newConfidence * 100).rounded()))%",
                                confidence: c.newConfidence,
-                               crop: c.newCrop) {
+                               crop: nil) {
                             useNew.insert(c.key)
                         }
                     }
@@ -65,6 +99,9 @@ struct ConflictReviewSheet: View {
             }
         }
         .interactiveDismissDisabled()
+        .sheet(item: $zoom) { item in
+            PhotoViewer(image: item.image, title: item.title)
+        }
     }
 
     private func option(selected: Bool, title: String, value: String, detail: String,

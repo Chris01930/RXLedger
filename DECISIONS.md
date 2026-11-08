@@ -84,6 +84,7 @@ Choices I made where the spec left room. Each is easy to revisit.
     - The new reading is pre-selected only when it beats an earlier OCR reading's confidence by more than 5 points. Values typed by hand are always pre-selected to stay.
     - Equivalent readings ("$47.09" vs "47.09", a 4-4-2 NDC vs 5-4-2, case/spacing) aren't flagged, and a partial bullet list or note from a close-up isn't treated as a disagreement.
     - Vision's confidences are coarse (mostly 30%, 50% or 100%), so treat them as a rough guide; the crops are the better check.
+    - Each difference shows a context crop from the **new photo at full resolution**: the reading plus the printed field label and a line above and below, with the text that was read outlined. Tap it to zoom.
 - Expect further tuning as more real labels come in. Each scan keeps the raw OCR lines with bounding boxes, so *Re-run Parser* will apply future parser improvements to existing records. Each scan keeps the raw OCR lines with bounding boxes, so *Re-run Parser* will apply future parser improvements to existing records.
 - *Re-run Parser* opens the review form with the new values and doesn't save until you confirm. Any manual edits you made earlier are replaced by what you save there.
 

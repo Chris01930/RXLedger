@@ -110,6 +110,8 @@ struct OCRService {
         var image: UIImage
         var imageData: Data?
         var crops: [FieldKey: UIImage]
+        /// Larger crops from the new photo around each reading, with the reading outlined.
+        var contextCrops: [FieldKey: UIImage] = [:]
         /// Confidence of all photos re-parsed together.
         var combinedConfidence: Double?
         /// What the earlier photo(s) read, for comparing (nil when there was no earlier OCR).
@@ -126,6 +128,13 @@ struct OCRService {
     func supplement(existingImage: UIImage?, existingLines: [OCRLine], with photo: UIImage) async throws -> SupplementResult {
         let page = try await process(photo)
         guard let newImage = page.image.cgImage else { throw OCRError.unreadableImage }
+        // Context crops come from the new photo at full resolution, using its own coordinates.
+        var contextCrops: [FieldKey: UIImage] = [:]
+        for key in page.parse.fields.keys {
+            if let box = page.parse.boundingBox(for: key), let crop = ImageProcessing.contextCrop(newImage, around: box) {
+                contextCrops[key] = crop
+            }
+        }
         let existing = existingImage.flatMap { ImageProcessing.normalizedOrientation($0).cgImage }
         guard let (composite, slots) = ImageProcessing.stackVertically([existing, newImage].compactMap { $0 }) else {
             throw OCRError.unreadableImage
@@ -179,6 +188,7 @@ struct OCRService {
                                 image: UIImage(cgImage: composite),
                                 imageData: ImageProcessing.jpegForStorage(composite, maxDimension: 1600 * CGFloat(min(max(pageCount, 1), 3))),
                                 crops: crops,
+                                contextCrops: contextCrops,
                                 combinedConfidence: parser.parse(pagedLines: lines).meanConfidence,
                                 previous: previous,
                                 previousCrops: previousCrops)

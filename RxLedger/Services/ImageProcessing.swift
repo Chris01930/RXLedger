@@ -107,4 +107,33 @@ enum ImageProcessing {
         CGRect(x: page.minX + rect.minX * page.width, y: page.minY + rect.minY * page.height,
                width: rect.width * page.width, height: rect.height * page.height)
     }
+
+    /// A generous crop around `box` (normalized Vision rect) that includes the printed field label to its
+    /// left and a line above and below, with the box itself outlined — for checking a reading by eye.
+    static func contextCrop(_ cgImage: CGImage, around box: CGRect, color: UIColor = .systemOrange) -> UIImage? {
+        let lineH = max(box.height, 0.01)
+        let context = CGRect(x: box.minX - 0.18, y: box.minY - lineH * 1.6,
+                             width: box.width + 0.18 + 0.08, height: box.height + lineH * 3.2)
+            .intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
+        guard !context.isNull, context.width > 0, context.height > 0 else { return nil }
+        let w = CGFloat(cgImage.width), h = CGFloat(cgImage.height)
+        let pixel = CGRect(x: context.minX * w, y: (1 - context.maxY) * h, width: context.width * w, height: context.height * h).integral
+        guard let cropped = cgImage.cropping(to: pixel) else { return nil }
+
+        let size = CGSize(width: cropped.width, height: cropped.height)
+        let highlight = CGRect(x: (box.minX - context.minX) / context.width * size.width,
+                               y: (context.maxY - box.maxY) / context.height * size.height,
+                               width: box.width / context.width * size.width,
+                               height: box.height / context.height * size.height).insetBy(dx: -4, dy: -3)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        return UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            UIImage(cgImage: cropped).draw(at: .zero)
+            color.setStroke()
+            let path = UIBezierPath(roundedRect: highlight, cornerRadius: 4)
+            path.lineWidth = max(2, size.height / 60)
+            path.stroke()
+        }
+    }
 }

@@ -82,4 +82,16 @@ struct PrivateSampleTests {
             #expect(Set(result.lines.compactMap(\.page)) == [0, 1])
         }
     }
+
+    /// Writes context crops from the add-photo path so their outlines can be checked by eye.
+    @Test(.enabled(if: !images.isEmpty))
+    func contextCropsForReview() async throws {
+        let url = try #require(Self.images.first)
+        let photo = try #require(UIImage(contentsOfFile: url.path))
+        let r = try await OCRService().supplement(existingImage: nil, existingLines: [], with: photo)
+        for key in [FieldKey.tp, .daysSupply, .ndc, .patientName] {
+            let crop = try #require(r.contextCrops[key], "no context crop for \(key)")
+            try crop.jpegData(compressionQuality: 0.8)?.write(to: Self.folder.appendingPathComponent("context-\(key.rawValue).jpg"))
+        }
+    }
 }

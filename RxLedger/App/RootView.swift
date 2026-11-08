@@ -33,7 +33,8 @@ struct RootView: View {
         #if DEBUG
         .sheet(isPresented: .constant(ProcessInfo.processInfo.arguments.contains("-previewConflictSheet"))) {
             ConflictReviewSheet(conflicts: [
-                FieldConflict(key: .tp, currentValue: "93125", currentSource: .scan(confidence: 0.3), newValue: "33125", newConfidence: 1.0),
+                FieldConflict(key: .tp, currentValue: "93125", currentSource: .scan(confidence: 0.3), newValue: "33125", newConfidence: 1.0,
+                              newContext: Self.debugContextImage()),
                 FieldConflict(key: .daysSupply, currentValue: "2", currentSource: .scan(confidence: 0.5), newValue: "28", newConfidence: 1.0),
                 FieldConflict(key: .amountDue, currentValue: "8.67", currentSource: .edited, newValue: "8.57", newConfidence: 0.5),
             ]) { _ in }
@@ -41,6 +42,26 @@ struct RootView: View {
         #endif
     }
 }
+
+#if DEBUG
+extension RootView {
+    /// A rendered label snippet for previewing the differences sheet.
+    static func debugContextImage() -> UIImage? {
+        let size = CGSize(width: 1200, height: 400)
+        let lines = ["INSURANCE INFORMATION:", "CAREMARK BIN 004336", "TP: 33125   GR: EXAMPLERX   AUTH#: 1112223334", "RETAIL PRICE: $47.09"]
+        let image = UIGraphicsImageRenderer(size: size).image { ctx in
+            UIColor.white.setFill(); ctx.fill(CGRect(origin: .zero, size: size))
+            for (i, l) in lines.enumerated() {
+                (l as NSString).draw(at: CGPoint(x: 40, y: 40 + i * 80),
+                                     withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 40, weight: .medium)])
+            }
+        }
+        guard let cg = image.cgImage else { return nil }
+        // "33125" on the third line.
+        return ImageProcessing.contextCrop(cg, around: CGRect(x: 0.155, y: 1 - 230.0 / 400, width: 0.14, height: 0.12))
+    }
+}
+#endif
 
 #Preview {
     RootView()

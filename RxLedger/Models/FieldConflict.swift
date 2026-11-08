@@ -27,6 +27,8 @@ struct FieldConflict: Identifiable {
     let newValue: String
     let newConfidence: Double
     var newCrop: UIImage?
+    /// The new photo around this field, with the reading outlined.
+    var newContext: UIImage?
 
     var id: FieldKey { key }
 
