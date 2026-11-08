@@ -65,6 +65,7 @@ Set these in the scheme's *Arguments Passed On Launch*. They only work in Debug 
 | `-scanImagePath /path/img.png` | Run the full OCR pipeline on a file at launch (the simulator has no camera) |
 | `-startTab medications\|capture\|settings` | Open on a given tab |
 | `-openFirstFill` | Push the first fill's detail screen |
+| `-previewConflictSheet` | Show the "Review Differences" sheet with sample data |
 
 ## Project layout
 

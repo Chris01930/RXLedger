@@ -112,6 +112,9 @@ struct OCRService {
         var crops: [FieldKey: UIImage]
         /// Confidence of all photos re-parsed together.
         var combinedConfidence: Double?
+        /// What the earlier photo(s) read, for comparing (nil when there was no earlier OCR).
+        var previous: ParseResult?
+        var previousCrops: [FieldKey: UIImage] = [:]
 
         var ocrPayload: OCRPayload {
             OCRPayload(rawText: OCRLine.joinedText(lines), lines: lines, confidence: combinedConfidence, imageData: imageData)
@@ -155,13 +158,30 @@ struct OCRService {
                 crops[key] = crop
             }
         }
+        // Earlier photos' readings, so the editor can show both confidences side by side.
+        var previous: ParseResult?
+        var previousCrops: [FieldKey: UIImage] = [:]
+        if !existingLines.isEmpty {
+            let prev = parser.parse(pagedLines: lines.filter { $0.page != newPage })
+            previous = prev
+            if existing != nil {
+                for key in prev.fields.keys {
+                    if let box = prev.boundingBox(for: key), let crop = ImageProcessing.crop(composite, normalizedRect: box) {
+                        previousCrops[key] = crop
+                    }
+                }
+            }
+        }
+
         let pageCount = Set(lines.map { $0.page ?? 0 }).count
         return SupplementResult(parse: parse,
                                 lines: lines,
                                 image: UIImage(cgImage: composite),
                                 imageData: ImageProcessing.jpegForStorage(composite, maxDimension: 1600 * CGFloat(min(max(pageCount, 1), 3))),
                                 crops: crops,
-                                combinedConfidence: parser.parse(pagedLines: lines).meanConfidence)
+                                combinedConfidence: parser.parse(pagedLines: lines).meanConfidence,
+                                previous: previous,
+                                previousCrops: previousCrops)
     }
 
     /// Raw Vision text recognition.

@@ -74,6 +74,8 @@ struct FillEditorView: View {
     @State private var isReadingPhoto = false
     @State private var photoMessage: String?
     @State private var didAutoStart = false
+    /// Fields an added photo read differently, awaiting the user's choice.
+    @State private var conflicts: [FieldConflict] = []
 
     init(title: String,
          initialDraft: FillDraft,
@@ -191,6 +193,11 @@ struct FillEditorView: View {
                     addPhotos(images)
                 }
             }
+            .sheet(isPresented: Binding(get: { !conflicts.isEmpty }, set: { if !$0 { conflicts = [] } })) {
+                ConflictReviewSheet(conflicts: conflicts) { useNew in
+                    resolveConflicts(useNew: useNew)
+                }
+            }
             .sheet(item: $duplicate) { existing in
                 DuplicateFillSheet(existing: existing,
                                    isScan: isScanSource,
@@ -282,6 +289,7 @@ struct FillEditorView: View {
         Task {
             let service = OCRService()
             var filledAll: [FieldKey] = []
+            var found: [FieldConflict] = []
             var failures = 0
             for image in images {
                 do {
@@ -290,6 +298,17 @@ struct FillEditorView: View {
                     stackedLines = result.lines
                     ocr = result.ocrPayload
                     addedPhoto = true
+
+                    // Fields the new photo reads differently from what's in the form.
+                    for var c in FieldConflict.detect(draft: draft, baseline: baseline, previous: result.previous, new: result.parse) {
+                        c.currentCrop = result.previousCrops[c.key] ?? annotations?.crops[c.key]
+                        c.newCrop = result.crops[c.key]
+                        if let i = found.firstIndex(where: { $0.key == c.key }) {
+                            if c.newConfidence > found[i].newConfidence { found[i] = c }
+                        } else {
+                            found.append(c)
+                        }
+                    }
 
                     var updated = draft
                     let filled = updated.fillBlanks(from: result.parse)
@@ -321,8 +340,31 @@ struct FillEditorView: View {
             if failures > 0, failures < images.count {
                 message += " \(failures) photo\(failures == 1 ? "" : "s") couldn't be read."
             }
+            if !found.isEmpty {
+                message += " \(found.count) field\(found.count == 1 ? " was" : "s were") read differently — review them in the sheet."
+                let order = FieldKey.allCases
+                conflicts = found.sorted { order.firstIndex(of: $0.key)! < order.firstIndex(of: $1.key)! }
+            }
             photoMessage = message
         }
+    }
+
+    /// Applies the user's picks from the differences sheet.
+    private func resolveConflicts(useNew keys: Set<FieldKey>) {
+        var notes = annotations ?? FieldAnnotations()
+        var updated = draft
+        for c in conflicts where keys.contains(c.key) {
+            updated[c.key] = c.newValue
+            baseline[c.key] = c.newValue   // an OCR reading the user accepted, not a typed edit
+            notes.confidence[c.key] = c.newConfidence
+            notes.crops[c.key] = c.newCrop
+            ocrFilledKeys.insert(c.key)
+        }
+        draft = updated
+        annotations = notes
+        let kept = conflicts.count - keys.count
+        photoMessage = (photoMessage ?? "") + " Updated \(keys.count), kept \(kept)."
+        conflicts = []
     }
 
     // MARK: - Saving

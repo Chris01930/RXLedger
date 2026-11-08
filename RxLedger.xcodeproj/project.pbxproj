@@ -19,6 +19,7 @@
 		28FAFF62481AFCA0FCD07CB6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 80E7E28F693EBA9726619476 /* Assets.xcassets */; };
 		320384EDC12C9A69E6BE7C5D /* CVSLabelParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C91FAA48D729A983FC3D05A /* CVSLabelParser.swift */; };
 		32885602EDF794333AB3CACC /* cvs_label_clean.txt in Resources */ = {isa = PBXBuildFile; fileRef = ED606B951602C60094932CB1 /* cvs_label_clean.txt */; };
+		379FCA8DE776F55188C032C7 /* FieldConflict.swift in Sources */ = {isa = PBXBuildFile; fileRef = AACE6D7689957E9B244A55D7 /* FieldConflict.swift */; };
 		3A1FF97B49A65BF936371DA6 /* cvs_label_see_directions.txt in Resources */ = {isa = PBXBuildFile; fileRef = 67AABB948F8620B67AB5C4E1 /* cvs_label_see_directions.txt */; };
 		3DC9C1AA23C386F2D4D62F75 /* Badges.swift in Sources */ = {isa = PBXBuildFile; fileRef = F743253439A21977492A6925 /* Badges.swift */; };
 		4E066EE6281573D2C0F7F0A1 /* DedupeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17DFCDECA88A8A66BC2F4DA /* DedupeService.swift */; };
@@ -29,6 +30,7 @@
 		62BA0522CABF5F5B0085DE72 /* cvs_label_garbled.txt in Resources */ = {isa = PBXBuildFile; fileRef = A6CB75822C0DC30D3CD7DB20 /* cvs_label_garbled.txt */; };
 		65990A778D24931687938A23 /* FillRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C989ED062182B7664A2318CC /* FillRepository.swift */; };
 		81957FAB0BDA574C25938213 /* LabelReconstructionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB8C61108A352AF4C4ABF01B /* LabelReconstructionView.swift */; };
+		8880B59B170BE5C90F5074A8 /* ConflictReviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 458910A759539598833D01CE /* ConflictReviewSheet.swift */; };
 		8A526BDC4A75E1CFFCCE5F1B /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F12F2E7B5F9BCCF275D6A09 /* CaptureView.swift */; };
 		8D35AD887F9FA596180B5895 /* ExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF084AD54164C270D5A12B2B /* ExportTests.swift */; };
 		93B9F870FB6EDBAF0EAFA88B /* FillsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E69654ADA157B8C22F20E480 /* FillsListView.swift */; };
@@ -68,6 +70,7 @@
 		190469E65A2600EDE29A44A6 /* OCRLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRLine.swift; sourceTree = "<group>"; };
 		2D0A456809BE744E835B32A9 /* CVSLabelParser+Prepare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CVSLabelParser+Prepare.swift"; sourceTree = "<group>"; };
 		37D004FDD36B7753C4A487DD /* LabelFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabelFormat.swift; sourceTree = "<group>"; };
+		458910A759539598833D01CE /* ConflictReviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictReviewSheet.swift; sourceTree = "<group>"; };
 		48B322D42490B76B255F0675 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		4B3064491B73D7860FC997F7 /* FillDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FillDetailView.swift; sourceTree = "<group>"; };
 		51738FF4BA27ADA52F54485B /* RxLedgerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RxLedgerApp.swift; sourceTree = "<group>"; };
@@ -93,6 +96,7 @@
 		9FF909E4407B30DDD00161C2 /* ExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportService.swift; sourceTree = "<group>"; };
 		A15B63C4833E131076D3FF2F /* AppLockManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockManager.swift; sourceTree = "<group>"; };
 		A6CB75822C0DC30D3CD7DB20 /* cvs_label_garbled.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = cvs_label_garbled.txt; sourceTree = "<group>"; };
+		AACE6D7689957E9B244A55D7 /* FieldConflict.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FieldConflict.swift; sourceTree = "<group>"; };
 		B1B81AA390647ED58AEBAD29 /* ImageProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageProcessing.swift; sourceTree = "<group>"; };
 		B7EC542604205F29E262A07B /* FillEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FillEditorView.swift; sourceTree = "<group>"; };
 		BC46C432E3A2F3AEBC2F8E0E /* MedicationDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationDetailView.swift; sourceTree = "<group>"; };
@@ -124,6 +128,7 @@
 		0786BF9BA6C55FBF9C3CE417 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				AACE6D7689957E9B244A55D7 /* FieldConflict.swift */,
 				61F7B62EE7939C86D1A5A53D /* FieldKey.swift */,
 				7054BC13AADF71B5BCD1A76F /* Fill.swift */,
 				D218AD6BF3805EDD12963AC9 /* FillDraft.swift */,
@@ -265,6 +270,7 @@
 		F26AF4ED1066AE1646B89E87 /* Editor */ = {
 			isa = PBXGroup;
 			children = (
+				458910A759539598833D01CE /* ConflictReviewSheet.swift */,
 				B7EC542604205F29E262A07B /* FillEditorView.swift */,
 				CF76FD9079074936166F98FD /* FillFormView.swift */,
 			);
@@ -408,8 +414,10 @@
 				CA7606848C05C6CB18336955 /* CVSLabelParser+Prepare.swift in Sources */,
 				320384EDC12C9A69E6BE7C5D /* CVSLabelParser.swift in Sources */,
 				8A526BDC4A75E1CFFCCE5F1B /* CaptureView.swift in Sources */,
+				8880B59B170BE5C90F5074A8 /* ConflictReviewSheet.swift in Sources */,
 				4E066EE6281573D2C0F7F0A1 /* DedupeService.swift in Sources */,
 				E8AC45095F64324E026A5A54 /* ExportService.swift in Sources */,
+				379FCA8DE776F55188C032C7 /* FieldConflict.swift in Sources */,
 				03AA7F85A0977C4815676E32 /* FieldKey.swift in Sources */,
 				044A614FB1BFD4699DE8D9B0 /* Fill.swift in Sources */,
 				BB6DDD863DE78E4F7C736CD7 /* FillDetailView.swift in Sources */,

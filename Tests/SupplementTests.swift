@@ -48,6 +48,8 @@ struct SupplementTests {
         #expect(ndcBox.maxY < 1.0 && r.image.size.height > existingImage.size.height)
         #expect(r.crops[.ndc] != nil)
         #expect(r.imageData != nil)
+        // The earlier text is re-parsed for comparison.
+        #expect(r.previous?[.drugName] == "IC METFORMIN HCL")
     }
 
     @Test func ocrFilledFieldsAreNotManualEdits() throws {
@@ -75,5 +77,61 @@ struct SupplementTests {
         typed[.amountDue] = "1.00"
         try repo.update(fill, with: typed)
         #expect(fill.wasEditedAfterScan)
+    }
+}
+
+@Suite("Differences between photos")
+struct FieldConflictTests {
+    private func parse(_ values: [FieldKey: (String, Double)]) -> ParseResult {
+        var r = ParseResult()
+        for (k, v) in values { r.fields[k] = ParsedField(value: v.0, confidence: v.1, boxes: []) }
+        return r
+    }
+
+    @Test func detectsDifferencesAndSources() {
+        var draft = FillDraft()
+        draft[.tp] = "93125"          // from the earlier scan, low confidence
+        draft[.amountDue] = "8.67"    // typed over the scan this session
+        draft[.ndc] = "00093-1048-01" // same value, different formatting below
+        draft[.retailPrice] = "47.09" // agrees
+        draft[.importantInfo] = "Take with food\nAvoid alcohol"
+        var baseline = draft
+        baseline[.amountDue] = "8.57"
+
+        let previous = parse([.tp: ("93125", 0.3), .amountDue: ("8.57", 1), .ndc: ("00093-1048-01", 1), .retailPrice: ("47.09", 1)])
+        // NDC printed 4-4-2 normalizes to the same code; "$47.09" is the same amount; a partial bullet list isn't a disagreement.
+        let new = parse([.tp: ("33125", 1), .amountDue: ("8.57", 1), .ndc: ("0093-1048-01", 1),
+                         .retailPrice: ("$47.09", 0.5), .importantInfo: ("Avoid alcohol", 1)])
+
+        let conflicts = FieldConflict.detect(draft: draft, baseline: baseline, previous: previous, new: new)
+        #expect(conflicts.map(\.key) == [.amountDue, .tp].sorted { FieldKey.allCases.firstIndex(of: $0)! < FieldKey.allCases.firstIndex(of: $1)! })
+
+        let tp = conflicts.first { $0.key == .tp }!
+        #expect(tp.currentSource == .scan(confidence: 0.3))
+        #expect(tp.newValue == "33125")
+        #expect(tp.prefersNew)                         // clearly more confident
+
+        let amount = conflicts.first { $0.key == .amountDue }!
+        #expect(amount.currentSource == .edited)
+        #expect(!amount.prefersNew)                    // never override a typed value by default
+    }
+
+    @Test func manualEntryHasNoEarlierScan() {
+        var draft = FillDraft()
+        draft[.patientName] = "Sample, Alex"
+        let conflicts = FieldConflict.detect(draft: draft, baseline: draft, previous: nil,
+                                             new: parse([.patientName: ("Sample, Alex J", 1)]))
+        #expect(conflicts.count == 1)
+        #expect(conflicts[0].currentSource == .entered)
+        #expect(!conflicts[0].prefersNew)
+    }
+
+    @Test func equalConfidenceKeepsCurrent() {
+        var draft = FillDraft()
+        draft[.gr] = "UNITEDRX"
+        let conflicts = FieldConflict.detect(draft: draft, baseline: draft, previous: parse([.gr: ("UNITEDRX", 1)]),
+                                             new: parse([.gr: ("UNITEDAX", 1)]))
+        #expect(conflicts.count == 1)
+        #expect(!conflicts[0].prefersNew)
     }
 }

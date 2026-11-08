@@ -79,7 +79,11 @@ Choices I made where the spec left room. Each is easy to revisit.
   - Fields filled this way count as OCR, not manual edits, so they don't set `wasEditedAfterScan`.
   - The photo is stacked under the stored image, and its OCR lines are added with the next `page` tag, so *Re-run Parser* sees every photo.
   - From the record, nothing is saved until you review and tap Save.
-  - I didn't let a new photo replace low-confidence values automatically. That would silently change data you've already reviewed, so to correct a wrong value you edit it.
+  - **Differences are never applied silently.** When the new photo reads a filled field differently, a "Review Differences" sheet shows both values side by side, with each one's source and confidence plus the label crop it came from.
+    - The current value's source is shown as *Original scan · NN%* (re-parsed from the earlier photos), *Edited by hand*, or *Entered manually*.
+    - The new reading is pre-selected only when it beats an earlier OCR reading's confidence by more than 5 points. Values typed by hand are always pre-selected to stay.
+    - Equivalent readings ("$47.09" vs "47.09", a 4-4-2 NDC vs 5-4-2, case/spacing) aren't flagged, and a partial bullet list or note from a close-up isn't treated as a disagreement.
+    - Vision's confidences are coarse (mostly 30%, 50% or 100%), so treat them as a rough guide; the crops are the better check.
 - Expect further tuning as more real labels come in. Each scan keeps the raw OCR lines with bounding boxes, so *Re-run Parser* will apply future parser improvements to existing records. Each scan keeps the raw OCR lines with bounding boxes, so *Re-run Parser* will apply future parser improvements to existing records.
 - *Re-run Parser* opens the review form with the new values and doesn't save until you confirm. Any manual edits you made earlier are replaced by what you save there.
 

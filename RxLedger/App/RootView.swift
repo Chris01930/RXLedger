@@ -30,6 +30,15 @@ struct RootView: View {
         .onChange(of: scenePhase, initial: true) { _, phase in
             lock.handle(scenePhase: phase)
         }
+        #if DEBUG
+        .sheet(isPresented: .constant(ProcessInfo.processInfo.arguments.contains("-previewConflictSheet"))) {
+            ConflictReviewSheet(conflicts: [
+                FieldConflict(key: .tp, currentValue: "93125", currentSource: .scan(confidence: 0.3), newValue: "33125", newConfidence: 1.0),
+                FieldConflict(key: .daysSupply, currentValue: "2", currentSource: .scan(confidence: 0.5), newValue: "28", newConfidence: 1.0),
+                FieldConflict(key: .amountDue, currentValue: "8.67", currentSource: .edited, newValue: "8.57", newConfidence: 0.5),
+            ]) { _ in }
+        }
+        #endif
     }
 }
 
