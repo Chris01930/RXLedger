@@ -21,6 +21,8 @@ targets:
       path: RxLedger/Info.plist
       properties:
         CFBundleDisplayName: RxLedger
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         NSCameraUsageDescription: RxLedger uses the camera to scan your pharmacy labels. Images are processed on this device and never uploaded.
         NSFaceIDUsageDescription: RxLedger uses Face ID to keep your prescription history private.
