@@ -51,14 +51,53 @@ struct CVSLabelParser {
     }
 
     func parse(lines: [OCRLine]) -> ParseResult {
-        var ctx = Context(rows: Self.buildRows(lines))
+        let prepared = Self.prepare(lines)
+        var ctx = Context(rows: Self.buildRows(prepared.lines), prepared: prepared)
         ctx.run()
         return ParseResult(fields: ctx.fields, anchorScore: ctx.anchorScore)
     }
 
+    /// Parses lines that may come from several close-up photos (tagged with `page`): each photo is parsed
+    /// on its own and the results are merged field by field.
+    func parse(pagedLines lines: [OCRLine]) -> ParseResult {
+        let pages = Dictionary(grouping: lines) { $0.page ?? 0 }
+        guard pages.count > 1 else { return parse(lines: lines) }
+        return Self.merge(pages.keys.sorted().map { parse(lines: pages[$0]!) })
+    }
+
+    /// Combines results from several photos of the same label. For each field the value seen in the most
+    /// photos (weighted by confidence) wins; for bullet lists and notes, the most complete reading wins,
+    /// since a close-up may only show part of the list.
+    static func merge(_ results: [ParseResult]) -> ParseResult {
+        var merged = ParseResult()
+        merged.anchorScore = results.map(\.anchorScore).max() ?? 0
+        for key in FieldKey.allCases {
+            let candidates = results.compactMap { $0.fields[key] }
+            guard !candidates.isEmpty else { continue }
+            switch key.kind {
+            case .list, .multiline:
+                let solid = candidates.filter { $0.confidence >= 0.5 }
+                merged.fields[key] = (solid.isEmpty ? candidates : solid).max { $0.value.count < $1.value.count }
+            default:
+                var groups: [String: (score: Double, best: ParsedField)] = [:]
+                for c in candidates {
+                    let g = groups[c.value]
+                    let best = (g?.best.confidence ?? -1) >= c.confidence ? g!.best : c
+                    groups[c.value] = ((g?.score ?? 0) + c.confidence, best)
+                }
+                // Highest score; on a near-tie, the more complete (longer) reading.
+                merged.fields[key] = groups.values.max { a, b in
+                    abs(a.score - b.score) < 0.05 ? a.best.value.count < b.best.value.count : a.score < b.score
+                }?.best
+            }
+        }
+        return merged
+    }
+
     /// How "label-like" a set of lines is. Higher is better.
     static func anchorScore(_ lines: [OCRLine]) -> Int {
-        var ctx = Context(rows: buildRows(lines))
+        let prepared = prepare(lines)
+        var ctx = Context(rows: buildRows(prepared.lines), prepared: prepared)
         ctx.findHits()
         ctx.findHeaders()
         return ctx.anchorScore
@@ -218,14 +257,14 @@ struct CVSLabelParser {
         var out = ""
         for ch in literal {
             switch ch {
-            case " ": out += #"\s*"#
+            case " ": out += #"[\s.,]*"#  // OCR sometimes adds a stray period between words ("DAYS. SUPPLY")
             case "O": out += "[O0Q]"
             case "I": out += "[I1l|!]"
             case "L": out += "[L1I|]"
             case "S": out += "[S5]"
             case "B": out += "[B8]"
             case "Z": out += "[Z2]"
-            case "#": out += #"\s*[#H]?\s*"#
+            case "#": out += #"\s*[#HA4O0I1l|]?\s*"#  // "#" is often read as H, A, O or I
             case "(": out += #"\(?"#
             case ")": out += #"\)?"#
             case "&": out += #"(?:&|AND|8)?"#
@@ -300,8 +339,10 @@ struct CVSLabelParser {
         return (String(n), d.repaired)
     }
 
-    static func cleanMoney(_ s: String) -> Cleaned? {
+    static func cleanMoney(_ input: String) -> Cleaned? {
         let P = permissiveDigit
+        // "$1,311.99" → "$1311.99" (a comma followed by exactly three digits and then more number).
+        let s = input.replacingOccurrences(of: #"(\d)[,](\d{3})(?=[.,]\d{2}|\d|\b)"#, with: "$1$2", options: .regularExpression)
         if let m = firstMatch(#"[\$Ss]?\s*("# + P + #"{1,6})\s*[.,]\s*("# + P + #"{2})(?![0-9])"#, in: s) {
             let (whole, c1) = fixDigits(m[1])
             let (cents, c2) = fixDigits(m[2])
@@ -400,7 +441,12 @@ struct CVSLabelParser {
         var readyFillRow: Int?
         var headersFound = 0
 
-        init(rows: [Row]) { self.rows = rows }
+        let prepared: Prepared
+
+        init(rows: [Row], prepared: Prepared) {
+            self.rows = rows
+            self.prepared = prepared
+        }
 
         var anchorScore: Int { Set(hits.map(\.anchor)).count + headersFound }
 
@@ -415,6 +461,7 @@ struct CVSLabelParser {
             parseImportantInfo()
             parsePharmacy()
             parseInsurancePlan()
+            parseRefillFlag()
             parseNotes()
         }
 
@@ -465,6 +512,31 @@ struct CVSLabelParser {
             return NSRange(location: 0, length: end)
         }
 
+        /// Leading text restricted to segments starting left of `maxX` — the left column of a
+        /// two-column block, where the right column (e.g. the repeated drug name) shares the row.
+        func leftText(_ row: Int, maxX: Double?) -> (text: String, range: NSRange) {
+            guard rows.indices.contains(row) else { return ("", NSRange(location: 0, length: 0)) }
+            let lead = leadingRange(row)
+            guard let maxX else { return (leadingText(row), lead) }
+            let r = rows[row]
+            let segs = r.segments.filter { $0.start < lead.length && $0.line.boundingBox.minX < maxX }
+            guard let first = segs.first, let last = segs.last else { return ("", NSRange(location: 0, length: 0)) }
+            let range = NSRange(location: first.start, length: min(last.end, lead.length) - first.start)
+            return (CVSLabelParser.cleanText(r.substring(range)), range)
+        }
+
+        /// Left edge of the receipt's right column (from the anchors that live there).
+        var receiptSplitX: Double? {
+            let rightAnchors: [Anchor] = [.ndc, .qty, .cap, .refill, .mfr, .prescriber, .daysSupply, .dateFilled]
+            let xs = hits.filter { hit in rightAnchors.contains(hit.anchor) && (receiptHeader.map { hit.row > $0 } ?? true) }
+                .map { rows[$0.row].x(atOffset: $0.anchorRange.location) }
+            guard xs.count >= 2 else { return nil }
+            let sorted = xs.sorted()
+            let median = sorted[sorted.count / 2]
+            // Only meaningful when the right column really is to the right.
+            return median > 0.2 ? median - 0.015 : nil
+        }
+
         // MARK: Headers
 
         mutating func findHeaders() {
@@ -477,7 +549,7 @@ struct CVSLabelParser {
             receiptHeader = find(CVSLabelParser.fuzzy("RECEIPT") + #"\s*(?:&|and|8)?\s*"# + CVSLabelParser.fuzzy("REFILL INFO"))
                 ?? find(CVSLabelParser.fuzzy("RECEIPT") + ".*" + CVSLabelParser.fuzzy("REFILL"))
             notesHeader = find(CVSLabelParser.fuzzy("NOTES FROM"))
-            readyFillRow = find(#"(?<![A-Za-z])"# + CVSLabelParser.fuzzy("READY FILL"))
+            readyFillRow = find(#"(?<![A-Za-z])READY\s*F[I1l|]"#)
             let words = ["MORNING", "MIDDAY", "EVENING", "BEDTIME"].map { CVSLabelParser.regex(CVSLabelParser.fuzzy($0)) }
             scheduleHeader = rows.firstIndex { row in
                 let range = NSRange(location: 0, length: row.nsText.length)
@@ -497,6 +569,12 @@ struct CVSLabelParser {
             fields[key] = ParsedField(value: value, confidence: conf, boxes: r.boxes(in: range))
         }
 
+        /// Sets a field from lines that aren't part of a row (e.g. the vertical schedule column).
+        mutating func setRaw(_ key: FieldKey, _ value: String, confidence: Double, boxes: [CGRect]) {
+            guard !value.isEmpty, fields[key] == nil else { return }
+            fields[key] = ParsedField(value: value, confidence: confidence, boxes: boxes)
+        }
+
         mutating func set(_ key: FieldKey, _ cleaned: Cleaned?, row: Int, range: NSRange) {
             guard let cleaned else { return }
             set(key, cleaned.value, row: row, range: range, repaired: cleaned.repaired)
@@ -507,8 +585,9 @@ struct CVSLabelParser {
         /// The value for a hit: inline text, or the text directly below when inline is empty.
         func value(for hit: Hit) -> (text: String, row: Int, range: NSRange) {
             let row = rows[hit.row]
-            let inline = CVSLabelParser.cleanText(row.substring(hit.valueRange))
-            if !inline.isEmpty { return (inline, hit.row, hit.valueRange) }
+            let valueRange = Self.contiguousRange(hit.valueRange, after: hit.anchorRange, in: row)
+            let inline = CVSLabelParser.cleanText(row.substring(valueRange))
+            if !inline.isEmpty { return (inline, hit.row, valueRange) }
 
             let below = hit.row + 1
             guard rows.indices.contains(below), hits(in: below).isEmpty, rowIsFree(below) else {
@@ -520,6 +599,26 @@ struct CVSLabelParser {
             guard let seg else { return ("", hit.row, hit.valueRange) }
             let range = NSRange(location: seg.start, length: seg.end - seg.start)
             return (CVSLabelParser.cleanText(next.substring(range)), below, range)
+        }
+
+        /// Trims a value range at the first wide horizontal gap between OCR segments, so a value never
+        /// runs into the other column of a two-column block (e.g. "INSURANCE INFORMATION:" + "(1 BOX)").
+        static func contiguousRange(_ range: NSRange, after anchor: NSRange, in row: Row) -> NSRange {
+            guard row.segments.count > 1, let anchorSeg = row.segments.first(where: { $0.start <= anchor.location && anchor.location < $0.end }) else {
+                return range
+            }
+            var end = range.location + range.length
+            var prevMaxX = anchorSeg.line.boundingBox.maxX
+            let height = anchorSeg.line.boundingBox.height
+            for seg in row.segments where seg.start >= anchorSeg.end && seg.start < end {
+                let gap = seg.line.boundingBox.minX - prevMaxX
+                if gap > max(0.06, height * 4) {
+                    end = seg.start
+                    break
+                }
+                prevMaxX = seg.line.boundingBox.maxX
+            }
+            return NSRange(location: range.location, length: max(end - range.location, 0))
         }
 
         /// Rows that belong to a section header are not used as "value below".
@@ -620,46 +719,81 @@ struct CVSLabelParser {
         var patientNameRow: Int?
 
         mutating func parseHeaderBlock() {
-            let limit = min(rxInfoHeader ?? rows.count, firstHit(.dob)?.row ?? rows.count, 8, rows.count)
+            let limit = min(rxInfoHeader ?? rows.count, firstHit(.dob)?.row ?? rows.count, 12, rows.count)
             let P = CVSLabelParser.permissiveDigit
 
-            for i in 0..<min(limit, 5) where fields[.storeCode] == nil {
+            // "NE 116", "NE [59]", "NE |REF|" — store code, then the boxed bin/slot (digits or letters).
+            for i in 0..<min(limit, 8) where fields[.storeCode] == nil {
                 let t = leadingText(i)
-                if let m = CVSLabelParser.firstMatch("^([A-Za-z]{1,3})\\s+(\(P){1,4})$", in: t) {
-                    let (bin, c) = CVSLabelParser.fixDigits(m[2])
-                    if bin.allSatisfy(\.isASCIIDigit) {
-                        set(.storeCode, m[1].uppercased(), row: i, range: leadingRange(i))
-                        set(.binSlot, bin, row: i, range: leadingRange(i), repaired: c)
-                    }
+                guard let m = CVSLabelParser.firstMatch(#"^([A-Za-z]{1,3})\s*[\[(|]?\s*([A-Za-z0-9]{1,4})\s*[\])|]?$"#, in: t),
+                      m[1] == m[1].uppercased() else { continue }
+                var bin = m[2].uppercased()
+                var repaired = false
+                if bin.contains(where: \.isASCIIDigit) {
+                    let fixed = CVSLabelParser.fixDigits(m[2])
+                    guard fixed.0.allSatisfy(\.isASCIIDigit) else { continue }
+                    (bin, repaired) = fixed
                 }
+                set(.storeCode, m[1].uppercased(), row: i, range: leadingRange(i))
+                set(.binSlot, bin, row: i, range: leadingRange(i), repaired: repaired)
             }
 
             if let r = readyFillRow, r < limit + 3 {
                 set(.readyFill, "true", row: r)
             }
 
+            // Barcode digits: read per OCR line (not per row) so nothing else on the row — such as a
+            // neighbouring label's barcode — gets appended. Adjacent digit pieces are chained.
+            func digitsOnly(_ t: String) -> Bool {
+                let compact = t.replacingOccurrences(of: " ", with: "")
+                return compact.range(of: "^\(P){2,}$", options: .regularExpression) != nil
+                    && compact.filter(\.isASCIIDigit).count >= max(2, compact.count * 2 / 3)
+            }
             for i in 0..<limit where fields[.barcode] == nil {
-                let t = leadingText(i).replacingOccurrences(of: " ", with: "")
-                guard t.range(of: "^\(P){8,}$", options: .regularExpression) != nil,
-                      t.filter(\.isASCIIDigit).count >= 6 else { continue }
-                let (digits, c) = CVSLabelParser.fixDigits(t)
+                let segs = rows[i].segments.filter { digitsOnly($0.line.text) }
+                guard let longest = segs.max(by: { $0.line.text.count < $1.line.text.count }),
+                      longest.line.text.replacingOccurrences(of: " ", with: "").count >= 8,
+                      let startIndex = segs.firstIndex(where: { $0.start == longest.start }) else { continue }
+                var chain = [longest]
+                var j = startIndex
+                while j > 0, longest.line.boundingBox.minX - segs[j - 1].line.boundingBox.maxX < 0.02 {
+                    j -= 1; chain.insert(segs[j], at: 0)
+                }
+                j = startIndex
+                while j + 1 < segs.count, segs[j + 1].line.boundingBox.minX - chain.last!.line.boundingBox.maxX < 0.02 {
+                    j += 1; chain.append(segs[j])
+                }
+                let text = chain.map(\.line.text).joined().replacingOccurrences(of: " ", with: "")
+                let (digits, c) = CVSLabelParser.fixDigits(text)
                 if digits.allSatisfy(\.isASCIIDigit) {
-                    set(.barcode, digits, row: i, range: leadingRange(i), repaired: c)
+                    let range = NSRange(location: chain.first!.start, length: chain.last!.end - chain.first!.start)
+                    set(.barcode, digits, row: i, range: range, repaired: c)
                 }
             }
         }
 
         // MARK: Patient band
 
-        static let cszPattern = #"^(.*[A-Za-z].*?),?\s+([A-Za-z]{2})\.?\s+("# + CVSLabelParser.permissiveDigit + #"{5}(?:-"# + CVSLabelParser.permissiveDigit + #"{4})?)$"#
+        /// "City, ST 01930" — also tolerates "City. ST" and a street in front ("17 Main St, City, ST 01930").
+        static let cszPattern = #"^(.*[A-Za-z].*?)[,.]?\s+([A-Za-z]{2})\.?\s+("# + CVSLabelParser.permissiveDigit + #"{5}(?:-"# + CVSLabelParser.permissiveDigit + #"{4})?)$"#
 
-        mutating func setCityStateZip(_ t: String, row: Int, keys: (FieldKey, FieldKey, FieldKey)) -> Bool {
+        /// Parses "[street, ]city, ST zip". When the street is on the same line (as on CVS patient bands),
+        /// it's split off at the last comma and stored in `streetKey`.
+        mutating func setCityStateZip(_ t: String, row: Int, range: NSRange? = nil, keys: (FieldKey, FieldKey, FieldKey), streetKey: FieldKey? = nil) -> Bool {
             guard let m = CVSLabelParser.firstMatch(Self.cszPattern, in: t) else { return false }
             let (zip, c) = CVSLabelParser.fixDigits(m[3])
             guard zip.replacingOccurrences(of: "-", with: "").allSatisfy(\.isASCIIDigit) else { return false }
-            set(keys.0, CVSLabelParser.cleanText(m[1]).trimmingCharacters(in: CharacterSet(charactersIn: ",")), row: row, range: leadingRange(row))
-            set(keys.1, m[2].uppercased(), row: row, range: leadingRange(row))
-            set(keys.2, zip, row: row, range: leadingRange(row), repaired: c)
+            let range = range ?? leadingRange(row)
+            var city = CVSLabelParser.cleanText(m[1]).trimmingCharacters(in: CharacterSet(charactersIn: ",. "))
+            if let streetKey, city.first?.isASCIIDigit == true,
+               let comma = city.range(of: ",", options: .backwards) {
+                let street = String(city[..<comma.lowerBound]).trimmingCharacters(in: .whitespaces)
+                city = String(city[comma.upperBound...]).trimmingCharacters(in: .whitespaces)
+                set(streetKey, street, row: row, range: range)
+            }
+            set(keys.0, city, row: row, range: range)
+            set(keys.1, m[2].uppercased(), row: row, range: range)
+            set(keys.2, zip, row: row, range: range, repaired: c)
             return true
         }
 
@@ -678,11 +812,12 @@ struct CVSLabelParser {
             for i in (nameRow + 1)..<max(end, nameRow + 1) {
                 let t = leadingText(i)
                 guard !t.isEmpty else { continue }
-                if fields[.patientStreet] == nil, t.first?.isASCIIDigit == true, t.contains(where: \.isLetter),
-                   CVSLabelParser.firstMatch(Self.cszPattern, in: t) == nil {
+                if fields[.patientCity] == nil,
+                   setCityStateZip(t, row: i, keys: (.patientCity, .patientState, .patientZip), streetKey: .patientStreet) {
+                    continue
+                }
+                if fields[.patientStreet] == nil, t.first?.isASCIIDigit == true, t.contains(where: \.isLetter) {
                     set(.patientStreet, t, row: i, range: leadingRange(i))
-                } else if fields[.patientCity] == nil {
-                    _ = setCityStateZip(t, row: i, keys: (.patientCity, .patientState, .patientZip))
                 }
             }
         }
@@ -690,6 +825,12 @@ struct CVSLabelParser {
         // MARK: Drug lines and directions
 
         static let directionVerbs = #"^(take|apply|use|inhale|instill|place|dissolve|chew|insert|inject|spray|give|swallow|mix|rub|shake)\b"#
+        static let strengthPattern = #"\s(\d+(?:\.\d+)?\s*(?:MG|MCG|G|ML|%|UNITS?|MEQ|IU)\b.*)$"#
+        static let seeDirections = CVSLabelParser.regex(#"^\W*"# + CVSLabelParser.fuzzy("SEE DIRECTIONS") + #"\W*$"#)
+
+        func isSeeDirections(_ text: String) -> Bool {
+            Self.seeDirections.firstMatch(in: text, range: NSRange(location: 0, length: (text as NSString).length)) != nil
+        }
 
         mutating func parseDrugAndDirections() {
             let brandsRow = firstHit(.commonBrands)?.row
@@ -708,20 +849,27 @@ struct CVSLabelParser {
             }
             let end = min(brandsRow ?? directionsStartRow ?? start + 2, rows.count)
 
-            let candidates = (start..<max(end, start)).filter { i in
-                !leadingText(i).isEmpty && hits(in: i).isEmpty && i != scheduleHeader
-            }
-            if candidates.count >= 2 {
-                set(.drugName, leadingText(candidates[0]), row: candidates[0], range: leadingRange(candidates[0]))
-                set(.strengthForm, leadingText(candidates[1]), row: candidates[1], range: leadingRange(candidates[1]))
-            } else if let only = candidates.first {
-                let t = leadingText(only)
-                let strength = #"\s(\d+(?:\.\d+)?\s*(?:MG|MCG|G|ML|%|UNITS?|MEQ|IU)\b.*)$"#
-                if let m = CVSLabelParser.firstMatch(strength, in: t) {
-                    set(.drugName, String(t.dropLast(m[0].count)).trimmingCharacters(in: .whitespaces), row: only, range: leadingRange(only))
-                    set(.strengthForm, m[1], row: only, range: leadingRange(only))
+            let candidates = Array((start..<max(end, start)).filter { i in
+                !leadingText(i).isEmpty && hits(in: i).isEmpty && i != scheduleHeader && !isSeeDirections(leadingText(i))
+            }.prefix(2))
+
+            // The label prints the drug over two lines, but where it breaks varies
+            // ("IC LISINOPRIL 10 MG" / "TABLET" vs "INSULIN GLARGINE" / "100 UNIT/ML PEN"), so join and split at the strength.
+            if !candidates.isEmpty {
+                let joined = candidates.map { leadingText($0) }.joined(separator: " ")
+                let rowA = candidates[0], rowB = candidates.last!
+                if let m = CVSLabelParser.firstMatch(Self.strengthPattern, in: joined) {
+                    let name = String(joined.dropLast(m[0].count)).trimmingCharacters(in: .whitespaces)
+                    let firstLen = leadingText(rowA).count
+                    set(.drugName, name, row: rowA, range: leadingRange(rowA))
+                    // Strength starts on line 1 when the name is shorter than line 1.
+                    let strengthRow = name.count < firstLen ? rowA : rowB
+                    set(.strengthForm, m[1], row: strengthRow, range: leadingRange(strengthRow))
+                } else if candidates.count == 2 {
+                    set(.drugName, leadingText(rowA), row: rowA, range: leadingRange(rowA))
+                    set(.strengthForm, leadingText(rowB), row: rowB, range: leadingRange(rowB))
                 } else {
-                    set(.drugName, t, row: only, range: leadingRange(only))
+                    set(.drugName, joined, row: rowA, range: leadingRange(rowA))
                 }
             }
 
@@ -737,7 +885,7 @@ struct CVSLabelParser {
             var firstRow: Int?
             for i in dStart..<max(dEnd, dStart) where hits(in: i).isEmpty {
                 let t = leadingText(i)
-                guard !t.isEmpty else { continue }
+                guard !t.isEmpty, !isSeeDirections(t) else { continue }
                 parts.append(t)
                 if firstRow == nil { firstRow = i }
             }
@@ -748,23 +896,39 @@ struct CVSLabelParser {
 
         // MARK: Schedule boxes
 
+        static let scheduleKeys: [FieldKey] = [.scheduleMorning, .scheduleMidday, .scheduleEvening, .scheduleBedtime]
+
         mutating func parseSchedule() {
-            guard let header = scheduleHeader else { return }
-            let keys: [FieldKey] = [.scheduleMorning, .scheduleMidday, .scheduleEvening, .scheduleBedtime]
-            let see = CVSLabelParser.regex(CVSLabelParser.fuzzy("SEE DIRECTIONS"))
+            let keys = Self.scheduleKeys
+
+            // SEE DIRECTIONS: printed sideways down the column on real labels, across the boxes on others.
+            if let v = prepared.verticalLines.first(where: { isSeeDirections($0.text) })
+                ?? prepared.lines.first(where: { isSeeDirections($0.text) && (scheduleHeader == nil) && !prepared.scheduleWords.isEmpty }) {
+                for k in keys { setRaw(k, "SEE DIRECTIONS", confidence: v.confidence, boxes: [v.boundingBox]) }
+                return
+            }
+
+            if let header = scheduleHeader {
+                parseHorizontalSchedule(header: header)
+            } else {
+                parseVerticalSchedule()
+            }
+        }
+
+        /// Words in one row ("Morning Midday Evening Bedtime") with values in the row below.
+        mutating func parseHorizontalSchedule(header: Int) {
+            let keys = Self.scheduleKeys
             for i in max(header - 1, 0)...min(header + 2, rows.count - 1) {
                 let row = rows[i]
-                if see.firstMatch(in: row.text, range: NSRange(location: 0, length: row.nsText.length)) != nil {
+                if CVSLabelParser.regex(CVSLabelParser.fuzzy("SEE DIRECTIONS")).firstMatch(in: row.text, range: NSRange(location: 0, length: row.nsText.length)) != nil {
                     for k in keys { set(k, "SEE DIRECTIONS", row: i) }
                     return
                 }
             }
 
-            // Column centers from the header words.
             let headerRow = rows[header]
-            let words = ["MORNING", "MIDDAY", "EVENING", "BEDTIME"]
             var centers: [Double] = []
-            for (idx, w) in words.enumerated() {
+            for (idx, w) in CVSLabelParser.scheduleWordList.enumerated() {
                 let re = CVSLabelParser.regex(CVSLabelParser.fuzzy(w))
                 if let m = re.firstMatch(in: headerRow.text, range: NSRange(location: 0, length: headerRow.nsText.length)) {
                     centers.append(headerRow.x(atOffset: m.range.location + m.range.length / 2))
@@ -776,9 +940,8 @@ struct CVSLabelParser {
             let valueRowIndex = header + 1
             guard rows.indices.contains(valueRowIndex), valueRowIndex != importantHeader, hits(in: valueRowIndex).isEmpty else { return }
             let valueRow = rows[valueRowIndex]
-            let tokenRe = CVSLabelParser.regex(#"\S+"#)
-            let tokens = tokenRe.matches(in: valueRow.text, range: NSRange(location: 0, length: valueRow.nsText.length))
-            // Only short quantity-like tokens ("1", "1/2", "2 TABS" fragments) belong in the boxes.
+            let tokens = CVSLabelParser.regex(#"\S+"#).matches(in: valueRow.text, range: NSRange(location: 0, length: valueRow.nsText.length))
+            // Only short quantity-like tokens ("1", "1/2") belong in the boxes.
             guard !tokens.isEmpty, tokens.count <= 8,
                   tokens.allSatisfy({ valueRow.substring($0.range).count <= 6 }) else { return }
 
@@ -791,6 +954,41 @@ struct CVSLabelParser {
             for (col, values) in assigned {
                 set(keys[col], values.joined(separator: " "), row: valueRowIndex)
             }
+        }
+
+        /// CVS layout: a column of icon cells, each labelled underneath (MORNING … BEDTIME), with the
+        /// quantity in a white box to the right of the label.
+        mutating func parseVerticalSchedule() {
+            let keys = Self.scheduleKeys
+            let cells = Self.scheduleCells(from: prepared.scheduleWords)
+            for (slot, word) in cells {
+                let h = word.height
+                let yRange = (word.minY - h)...(word.maxY + h * 3.5)
+                let xRange = (word.maxX - 0.01)...(word.maxX + 0.09)
+                let values = prepared.lines.filter { l in
+                    let b = l.boundingBox
+                    let t = l.text.trimmingCharacters(in: .whitespaces)
+                    return yRange.contains(b.midY) && xRange.contains(b.minX) && t.count <= 6 && t.contains(where: \.isNumber)
+                }
+                guard !values.isEmpty else { continue }
+                setRaw(keys[slot], values.map(\.text).joined(separator: " "),
+                       confidence: values.map(\.confidence).reduce(0, +) / Double(values.count),
+                       boxes: values.map(\.boundingBox))
+            }
+        }
+
+        /// Word boxes for all four slots, inferring a missing (unreadable) one from the spacing of the others.
+        static func scheduleCells(from words: [Int: CGRect]) -> [Int: CGRect] {
+            guard words.count >= 2 else { return words }
+            let known = words.keys.sorted()
+            let a = known.first!, b = known.last!
+            let step = (words[b]!.midY - words[a]!.midY) / Double(b - a)
+            var cells = words
+            for slot in 0..<4 where cells[slot] == nil {
+                let ref = words[a]!
+                cells[slot] = ref.offsetBy(dx: 0, dy: step * Double(slot - a))
+            }
+            return cells
         }
 
         // MARK: Important information bullets
@@ -816,33 +1014,38 @@ struct CVSLabelParser {
             }
         }
 
-        // MARK: Pharmacy
+        // MARK: Pharmacy (left column of the receipt)
 
         mutating func parsePharmacy() {
             let start: Int
             if let h = receiptHeader {
                 start = h + 1
-            } else if let r = rows.indices.first(where: { $0 > (rxInfoHeader ?? 0) && leadingText($0).range(of: "cvs", options: .caseInsensitive) != nil }) {
+            } else if let r = rows.indices.first(where: {
+                $0 > (rxInfoHeader ?? 0) && leadingText($0).range(of: #"^\W*cvs\W*pharmacy\W*$"#, options: [.regularExpression, .caseInsensitive]) != nil
+            }) {
                 start = r
             } else {
                 return
             }
+            let splitX = receiptSplitX
             let end = min(start + 6, rows.count)
             var nameRow: Int?
             for i in start..<max(end, start) {
-                let t = leadingText(i)
+                let (t, range) = leftText(i, maxX: splitX)
                 guard !t.isEmpty else { continue }
                 if nameRow == nil {
                     if t.first?.isASCIIDigit == false, CVSLabelParser.firstMatch(Self.cszPattern, in: t) == nil {
                         nameRow = i
-                        set(.pharmacyName, t, row: i, range: leadingRange(i))
+                        set(.pharmacyName, t, row: i, range: range)
                     }
                     continue
                 }
-                if fields[.pharmacyStreet] == nil, t.first?.isASCIIDigit == true, CVSLabelParser.firstMatch(Self.cszPattern, in: t) == nil {
-                    set(.pharmacyStreet, t, row: i, range: leadingRange(i))
-                } else if fields[.pharmacyCity] == nil, setCityStateZip(t, row: i, keys: (.pharmacyCity, .pharmacyState, .pharmacyZip)) {
+                if fields[.pharmacyCity] == nil,
+                   setCityStateZip(t, row: i, range: range, keys: (.pharmacyCity, .pharmacyState, .pharmacyZip), streetKey: .pharmacyStreet) {
                     break
+                }
+                if fields[.pharmacyStreet] == nil, t.first?.isASCIIDigit == true {
+                    set(.pharmacyStreet, t, row: i, range: range)
                 }
             }
         }
@@ -851,11 +1054,27 @@ struct CVSLabelParser {
             guard fields[.insurancePlanName] == nil, let hit = firstHit(.insuranceInfo) else { return }
             let next = hit.row + 1
             guard rows.indices.contains(next) else { return }
-            let t = leadingText(next)
-            if !t.isEmpty { set(.insurancePlanName, t, row: next, range: leadingRange(next)) }
+            let (t, range) = leftText(next, maxX: receiptSplitX)
+            if !t.isEmpty { set(.insurancePlanName, t, row: next, range: range) }
+        }
+
+        /// The boxed "RF" sits beside the Rx/fill number and OCR often reads it alone (sometimes as "RI").
+        mutating func parseRefillFlag() {
+            guard fields[.refillFlag] == nil, let rx = firstHit(.rx) else { return }
+            let splitX = receiptSplitX ?? 1
+            for i in max(rx.row - 1, 0)...min(rx.row + 1, rows.count - 1) {
+                for seg in rows[i].segments where seg.line.boundingBox.minX < splitX {
+                    if seg.line.text.range(of: #"^\W*R\s*[FIE1l|P]\W*$"#, options: .regularExpression) != nil {
+                        setRaw(.refillFlag, "true", confidence: seg.line.confidence, boxes: [seg.line.boundingBox])
+                        return
+                    }
+                }
+            }
         }
 
         // MARK: Notes
+
+        static let logo = CVSLabelParser.regex(#"cvs\s*pharmacy\s*\W*$"#)
 
         mutating func parseNotes() {
             guard let header = notesHeader else { return }
@@ -865,10 +1084,12 @@ struct CVSLabelParser {
                 if !hits(in: i).isEmpty { break }
                 let t = leadingText(i)
                 guard !t.isEmpty else { continue }
+                // The CVS logo at the foot of the label.
+                if Self.logo.firstMatch(in: t, range: NSRange(location: 0, length: (t as NSString).length)) != nil, t.count < 20 { continue }
                 parts.append(t)
                 if firstRow == nil { firstRow = i }
             }
-            if let firstRow { set(.pharmacyNotes, parts.joined(separator: " "), row: firstRow) }
+            if let firstRow { set(.pharmacyNotes, parts.joined(separator: "\n"), row: firstRow) }
         }
     }
 }

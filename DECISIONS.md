@@ -56,7 +56,25 @@ Choices I made where the spec left room. Each is easy to revisit.
 - **Refills**: "No Refills" is stored as 0.
 - **`RF`**: any `RF` token after the Rx/fill number sets `refillFlag`.
 - **SEE DIRECTIONS** is stored in all four schedule fields and rendered as one spanning box.
-- The parser is tuned against synthetic fixtures. **Expect to tune it against your real labels.** Each scan keeps the raw OCR lines with bounding boxes, so *Re-run Parser* will apply future parser improvements to existing records.
+- **Tuned against real labels (Nov 2026).** Two real photos showed the actual CVS layout differs from the original spec:
+  - the schedule is a *vertical* column of icon cells (MORNING…BEDTIME), with "SEE DIRECTIONS" printed sideways;
+  - the patient address is one line ("street, city, ST zip");
+  - the receipt is two columns, and the right one repeats the drug name;
+  - the bin/slot can be letters ("REF");
+  - photos often include neighbouring labels.
+  The parser now pre-filters lines (`CVSLabelParser+Prepare.swift`):
+  - text clusters cut off at the left/right image edge are dropped as other labels;
+  - schedule-word labels and sideways text are set aside, and decorative lines and tiny low-confidence fragments are dropped;
+  - values are read only up to the first wide horizontal gap, so they don't run into the other column.
+- **Document cropping was tried and removed.** Vision's document segmentation picked the "Notes" box as the document on one real photo and threw away the rest of the label.
+- **Weak-line re-read**: lines that come back low-confidence or squashed are cropped, enlarged 3× and OCR'd again. This is an automatic version of "a higher-res image where needed". A re-read never extends into a neighbouring line that was already read well, and schedule labels are never re-read.
+- **SEE DIRECTIONS** is found by re-reading the schedule column rotated 90°/270°. The column is located from the schedule labels, or from the page layout when Vision misses them.
+- **Drug lines** are joined and split at the strength ("IC RAMIPRIL 10 MG" + "CAPSULE" → "IC RAMIPRIL" / "10 MG CAPSULE"), because where the label breaks the line varies by drug.
+- **Close-ups of one label** (Capture → "Part of one label"): each photo is read on its own at full resolution and the results are merged field by field.
+  - The value seen in the most photos wins, weighted by confidence. Readings within 3% of a photo's top/bottom edge count 30% less, since they're the likeliest to be cut off. Near-ties go to the longer value; for bullets and notes, the most complete reading wins.
+  - The photos are stacked into one tall image for the record (up to 1600 px per photo, 3 photos max at full size), and OCR lines carry a `page` tag so *Re-run Parser* re-merges correctly.
+  - I chose this over stitching the photos into one seamless image: aligning hand-held close-ups well enough for OCR is fragile and slow on-device, while merging per-photo results is robust to any overlap.
+- Expect further tuning as more real labels come in. Each scan keeps the raw OCR lines with bounding boxes, so *Re-run Parser* will apply future parser improvements to existing records. Each scan keeps the raw OCR lines with bounding boxes, so *Re-run Parser* will apply future parser improvements to existing records.
 - *Re-run Parser* opens the review form with the new values and doesn't save until you confirm. Any manual edits you made earlier are replaced by what you save there.
 
 ## UI

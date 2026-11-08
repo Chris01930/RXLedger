@@ -9,6 +9,8 @@ struct CaptureView: View {
     @State private var showingCamera = false
     @State private var showingManualEntry = false
     @State private var photoItems: [PhotosPickerItem] = []
+    /// When on, all photos/pages in one capture are close-ups of a single label and get combined.
+    @AppStorage("capture.closeUps") private var closeUps = false
 
     private var cameraAvailable: Bool { VNDocumentCameraViewController.isSupported }
 
@@ -23,9 +25,19 @@ struct CaptureView: View {
                         .accessibilityHidden(true)
                     Text("Scan a CVS label")
                         .font(.title2.bold())
-                    Text("Fit the whole label in the frame. You can capture several labels in one session — each page is read separately and you'll review every one before it's saved.")
+                    Picker("Each photo is", selection: $closeUps) {
+                        Text("A whole label").tag(false)
+                        Text("Part of one label").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityHint("Choose whether each photo shows a whole label, or several close-ups show parts of one label")
+
+                    Text(closeUps
+                         ? "Take 2–4 overlapping close-ups of ONE label — for example the top half, then the bottom half. Each is read at full resolution and the results are combined into one fill."
+                         : "Fit the whole label in the frame. You can capture several labels in one session — each is read separately and you'll review every one before it's saved.")
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.secondary)
+                        .animation(.default, value: closeUps)
 
                     Button {
                         showingCamera = true
@@ -78,7 +90,7 @@ struct CaptureView: View {
             .fullScreenCover(isPresented: $showingCamera) {
                 DocumentCameraView { images in
                     showingCamera = false
-                    model.process(images)
+                    model.process(images, closeUps: closeUps)
                 } onCancel: {
                     showingCamera = false
                 }
@@ -109,7 +121,7 @@ struct CaptureView: View {
             .onChange(of: photoItems) { _, items in
                 guard !items.isEmpty else { return }
                 photoItems = []
-                model.process(items)
+                model.process(items, closeUps: closeUps)
             }
             .alert("Some labels couldn't be read",
                    isPresented: Binding(get: { !model.failures.isEmpty && model.results.isEmpty && !model.isProcessing },
@@ -136,23 +148,39 @@ final class CaptureModel {
 
     private let ocr = OCRService()
 
-    func process(_ images: [UIImage]) {
-        run(count: images.count) { index in images[index] }
+    func process(_ images: [UIImage], closeUps: Bool = false) {
+        run(count: images.count, closeUps: closeUps) { index in images[index] }
     }
 
-    func process(_ items: [PhotosPickerItem]) {
-        run(count: items.count) { index in
+    func process(_ items: [PhotosPickerItem], closeUps: Bool = false) {
+        run(count: items.count, closeUps: closeUps) { index in
             guard let data = try await items[index].loadTransferable(type: Data.self) else { return nil }
             return UIImage(data: data)
         }
     }
 
-    private func run(count: Int, image: @escaping (Int) async throws -> UIImage?) {
+    private func run(count: Int, closeUps: Bool, image: @escaping (Int) async throws -> UIImage?) {
         guard count > 0 else { return }
         isProcessing = true
         failures = []
         Task {
             var collected: [ScanResult] = []
+            if closeUps && count > 1 {
+                var images: [UIImage] = []
+                for index in 0..<count {
+                    progressText = "Loading photo \(index + 1) of \(count)…"
+                    if let img = try? await image(index) { images.append(img) }
+                }
+                progressText = "Reading \(images.count) close-ups…"
+                do {
+                    collected.append(try await ocr.processCloseUps(images))
+                } catch {
+                    failures.append(error.localizedDescription)
+                }
+                isProcessing = false
+                results = collected
+                return
+            }
             for index in 0..<count {
                 progressText = count > 1 ? "Reading label \(index + 1) of \(count)…" : "Reading label…"
                 do {

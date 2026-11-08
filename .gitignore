@@ -3,3 +3,8 @@ xcuserdata/
 DerivedData/
 build/
 *.xcuserstate
+
+# Real label photos (personal health data)
+*.HEIC
+*.heic
+Tests/Private/

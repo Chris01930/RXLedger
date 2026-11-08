@@ -36,6 +36,18 @@ Suites (Swift Testing):
 | `Dedupe` | Rx+fill key, NDC+date fallback, replace keeps `createdAt`, related-record linking |
 | `Export and import` | JSON backup round trip, re-import skips duplicates, CSV escaping |
 | `OCR pipeline` | Vision + parser end-to-end on a rendered, upside-down label image |
+| `Real CVS layout` | Real CVS layout as positioned OCR lines (fictional values): vertical schedule column, two-column receipt, neighbouring label, garbled anchors; merging of close-ups |
+| `Private samples` | Your own label photos in `Tests/Private/` (git-ignored); skipped when the folder is empty |
+
+### Private real-label samples
+
+Put real label photos (`.heic`/`.jpg`/`.png`) in `Tests/Private/`. The folder is git-ignored, so they never leave your Mac. For each photo the test suite:
+
+- writes `<name>.dump.txt`: every OCR line with its position, plus every parsed field;
+- compares against `<name>.expected.json` (`{"fieldKey": "value"}`) if that file exists;
+- also splits each photo into overlapping halves to exercise the close-up merge, which must get at least 90% of fields right.
+
+Use the dump to see exactly what Vision read when a field comes out wrong.
 
 ### Adding real fixtures
 

@@ -46,6 +46,60 @@ struct OCRService {
         var suggestedRotation: Int
     }
 
+    /// Several close-up photos of ONE label: each is read at full resolution, the photos are stacked into
+    /// one tall image for the record, and the parsed fields are merged.
+    func processCloseUps(_ images: [UIImage]) async throws -> ScanResult {
+        guard images.count > 1 else { return try await process(images[0]) }
+        var pages: [ScanResult] = []
+        var lastError: Error?
+        for image in images {
+            do { pages.append(try await process(image)) } catch { lastError = error }
+        }
+        guard !pages.isEmpty else { throw lastError ?? OCRError.noText }
+        guard pages.count > 1 else { return pages[0] }
+
+        guard let (composite, slots) = ImageProcessing.stackVertically(pages.compactMap(\.image.cgImage)) else {
+            throw OCRError.unreadableImage
+        }
+
+        var lines: [OCRLine] = []
+        var parses: [ParseResult] = []
+        for (index, page) in pages.enumerated() {
+            let slot = slots[index]
+            lines += page.lines.map {
+                OCRLine(text: $0.text, confidence: $0.confidence,
+                        boundingBox: ImageProcessing.map($0.boundingBox, into: slot), page: index)
+            }
+            var parse = page.parse
+            parse.fields = parse.fields.mapValues { field in
+                var f = field
+                // Text right at a photo's edge is the most likely to be cut off, so it counts for less
+                // when the photos' readings are combined.
+                if let first = field.boxes.first {
+                    let box = field.boxes.dropFirst().reduce(first) { $0.union($1) }
+                    if min(box.minY, 1 - box.maxY) < 0.03 { f.confidence *= 0.7 }
+                }
+                f.boxes = field.boxes.map { ImageProcessing.map($0, into: slot) }
+                return f
+            }
+            parses.append(parse)
+        }
+        let merged = CVSLabelParser.merge(parses)
+
+        var annotations = FieldAnnotations(confidence: merged.confidences)
+        for key in merged.fields.keys {
+            if let box = merged.boundingBox(for: key), let crop = ImageProcessing.crop(composite, normalizedRect: box) {
+                annotations.crops[key] = crop
+            }
+        }
+        return ScanResult(parse: merged,
+                          lines: lines,
+                          image: UIImage(cgImage: composite),
+                          // Keep close-up detail: allow a taller stored image than for a single photo.
+                          imageData: ImageProcessing.jpegForStorage(composite, maxDimension: 1600 * CGFloat(min(pages.count, 3))),
+                          annotations: annotations)
+    }
+
     /// Raw Vision text recognition.
     func recognize(_ cgImage: CGImage) async throws -> Recognition {
         try await withCheckedThrowingContinuation { continuation in
@@ -128,13 +182,18 @@ struct OCRService {
         guard !bestLines.isEmpty else { throw OCRError.noText }
 
         let rotatedColor = ImageProcessing.rotate(color, degrees: best.degrees)
+        let rotatedGray = ImageProcessing.rotate(gray, degrees: best.degrees)
+
+        // Small print often comes back as low-confidence garbage; re-read those lines enlarged.
+        bestLines = await refineWeakLines(bestLines, in: rotatedGray)
         var parse = parser.parse(lines: bestLines)
 
         // Vision tends to skip isolated single characters (e.g. a lone "1" in a schedule box).
         // If the schedule header was found but no box values were, re-read that strip at 3x.
         let scheduleKeys: [FieldKey] = [.scheduleMorning, .scheduleMidday, .scheduleEvening, .scheduleBedtime]
         if scheduleKeys.allSatisfy({ parse.fields[$0] == nil }) {
-            let extra = await recoverScheduleLines(bestLines, in: ImageProcessing.rotate(gray, degrees: best.degrees))
+            var extra = await recoverScheduleLines(bestLines, in: rotatedGray)
+            extra += await recoverVerticalSchedule(bestLines, in: rotatedGray)
             if !extra.isEmpty {
                 bestLines += extra
                 parse = parser.parse(lines: bestLines)
@@ -164,6 +223,9 @@ struct OCRService {
         guard header.count >= 1,
               Set(header.flatMap { l in words.filter { l.text.lowercased().contains($0) } }).count >= 3,
               let first = header.first else { return [] }
+        // Only for the horizontal layout (words side by side); the vertical column has its own recovery.
+        let mids = header.map(\.boundingBox.midY)
+        guard (mids.max() ?? 0) - (mids.min() ?? 0) < (header.map(\.boundingBox.height).max() ?? 0) * 1.5 else { return [] }
         let box = header.dropFirst().reduce(first.boundingBox) { $0.union($1.boundingBox) }
         let h = header.map(\.boundingBox.height).max() ?? box.height
         let region = CGRect(x: box.minX - 0.04, y: box.minY - h * 2.4, width: box.width + 0.08, height: h * 2.3)
@@ -188,5 +250,126 @@ struct OCRService {
             let duplicate = lines.contains { $0.boundingBox.intersects(mapped) && $0.text == line.text }
             return duplicate ? nil : OCRLine(text: line.text, confidence: line.confidence, boundingBox: mapped)
         }
+    }
+
+    /// CVS labels print the schedule as a vertical column (MORNING … BEDTIME) with "SEE DIRECTIONS"
+    /// written sideways beside it, which normal OCR misses. Re-read that strip upright and rotated.
+    func recoverVerticalSchedule(_ lines: [OCRLine], in image: CGImage) async -> [OCRLine] {
+        guard let region = Self.scheduleColumnRegion(lines),
+              let crop = ImageProcessing.crop(image, normalizedRect: region, padding: 0)?.cgImage else { return [] }
+
+        var found: [OCRLine] = []
+        for degrees in [90, 270] {
+            guard let scaled = ImageProcessing.upscale(ImageProcessing.rotate(crop, degrees: degrees), factor: 2),
+                  let r = try? await recognize(scaled) else { continue }
+            if let hit = r.lines.first(where: { $0.text.uppercased().filter(\.isLetter).contains("SEEDIRECT") }) {
+                // Report it as one tall line covering the strip, which the parser treats as sideways text.
+                found.append(OCRLine(text: "SEE DIRECTIONS", confidence: hit.confidence, boundingBox: region))
+                break
+            }
+        }
+        return found
+    }
+
+    /// Where the vertical schedule column's value boxes are: from the schedule word labels when Vision
+    /// read at least two, otherwise from the layout (left of the drug text, between the
+    /// "Prescription Information" header and the "See back for more information" line).
+    static func scheduleColumnRegion(_ lines: [OCRLine]) -> CGRect? {
+        let unit = CGRect(x: 0, y: 0, width: 1, height: 1)
+        let words = CVSLabelParser.prepare(lines).scheduleWords
+        if words.count >= 2 {
+            let cells = CVSLabelParser.Context.scheduleCells(from: words)
+            let boxes = Array(cells.values)
+            if let minY = boxes.map(\.minY).min(), let maxY = boxes.map(\.maxY).max(),
+               let right = boxes.map(\.maxX).max(), let h = boxes.map(\.height).max() {
+                let r = CGRect(x: right - 0.01, y: minY - h, width: 0.11, height: (maxY - minY) + h * 5).intersection(unit)
+                if !r.isNull, r.width > 0, r.height > 0 { return r }
+            }
+        }
+        func find(_ needle: String) -> OCRLine? {
+            lines.first { $0.text.uppercased().filter(\.isLetter).contains(needle) }
+        }
+        guard let header = find("PRESCRIPTIONINFO") else { return nil }
+        let bottom = find("SEEBACKFOR")?.boundingBox.maxY ?? find("RECEIPT")?.boundingBox.maxY
+        guard let bottom, bottom < header.boundingBox.minY else { return nil }
+        // The drug/info column starts noticeably right of the header's left edge.
+        let infoX = lines
+            .filter { $0.boundingBox.midY < header.boundingBox.minY && $0.boundingBox.midY > bottom
+                && $0.boundingBox.minX > header.boundingBox.minX + 0.08 && $0.boundingBox.width > 0.08 }
+            .map(\.boundingBox.minX).min()
+        guard let infoX else { return nil }
+        let left = header.boundingBox.minX + (infoX - header.boundingBox.minX) * 0.45
+        let r = CGRect(x: left, y: bottom, width: infoX - left, height: header.boundingBox.minY - bottom).intersection(unit)
+        return r.isNull || r.width <= 0 || r.height <= 0 ? nil : r
+    }
+
+    /// Re-OCRs low-confidence or squashed lines from an enlarged crop and keeps the better reading.
+    func refineWeakLines(_ lines: [OCRLine], in image: CGImage) async -> [OCRLine] {
+        let heights = lines.filter { $0.confidence >= 0.5 }.map(\.boundingBox.height).sorted()
+        guard !heights.isEmpty else { return lines }
+        let medianH = heights[heights.count / 2]
+        let main = Set(CVSLabelParser.mainLabelLines(lines).map { $0 })
+
+        var result = lines
+        var budget = 30
+        for (i, line) in lines.enumerated() where budget > 0 && main.contains(line) {
+            let b = line.boundingBox
+            guard line.confidence < 0.6 || b.height < medianH * 0.6 else { continue }
+            // Schedule labels (MORNING…) sit next to sideways text; re-reading them only adds noise.
+            if CVSLabelParser.scheduleSlot(for: line.text) != nil { continue }
+            let h = max(b.height, medianH)
+            // A fragment lying on top of a line that was already read well is a duplicate, not a new line.
+            // Good lines on the same text line as this one; a re-read must not spill into them.
+            let neighbours = lines.filter { other in
+                other != line && other.confidence >= max(line.confidence, 0.5)
+                    && other.boundingBox.height >= medianH * 0.6
+                    && abs(other.boundingBox.midY - b.midY) < max(medianH, other.boundingBox.height) * 0.6
+            }
+            func overlapsNeighbour(_ minX: CGFloat, _ maxX: CGFloat) -> Bool {
+                neighbours.contains { minX < $0.boundingBox.maxX - 0.005 && maxX > $0.boundingBox.minX + 0.005 }
+            }
+            // A fragment lying mostly on a line that was already read well is a duplicate, not a new line.
+            let shadowed = neighbours.contains { other in
+                let ov = min(b.maxX, other.boundingBox.maxX) - max(b.minX, other.boundingBox.minX)
+                return ov > b.width * 0.5
+            }
+            if shadowed { continue }
+            budget -= 1
+            // Garbled lines often have a truncated box, so extend well to the right to catch the value.
+            let region = CGRect(x: b.minX - 0.015, y: b.midY - h * 1.3, width: max(b.width, 0.1) + 0.1, height: h * 2.6)
+                .intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
+            guard !region.isNull, region.width > 0, region.height > 0,
+                  let crop = ImageProcessing.crop(image, normalizedRect: region, padding: 0)?.cgImage,
+                  let scaled = ImageProcessing.upscale(crop, factor: 3),
+                  let r = try? await recognize(scaled) else { continue }
+            // Pieces on the crop's centre line (Vision may split "DAYS SUPPLY:" and "28"), mapped back
+            // to image coordinates, chained left-to-right from the one under the original box while the
+            // gaps stay small — so text from the next column isn't swallowed.
+            guard let centre = r.lines.min(by: { abs($0.boundingBox.midY - 0.5) < abs($1.boundingBox.midY - 0.5) }) else { continue }
+            let sw = CGFloat(scaled.width), m: CGFloat = 40
+            func imageX(_ v: CGFloat) -> CGFloat { region.minX + min(1, max(0, (v * sw - m) / (sw - 2 * m))) * region.width }
+            let pieces = r.lines
+                .filter { abs($0.boundingBox.midY - centre.boundingBox.midY) < centre.boundingBox.height * 0.5 }
+                .map { (line: $0, minX: imageX($0.boundingBox.minX), maxX: imageX($0.boundingBox.maxX)) }
+                .sorted { $0.minX < $1.minX }
+            guard let startIndex = pieces.indices.min(by: { abs(pieces[$0].minX - b.minX) < abs(pieces[$1].minX - b.minX) }),
+                  !overlapsNeighbour(pieces[startIndex].minX, pieces[startIndex].maxX) else { continue }
+            var chain = [pieces[startIndex]]
+            // A recovered schedule label (e.g. garbled "BEDTIME") stands alone.
+            let isScheduleWord = CVSLabelParser.scheduleSlot(for: pieces[startIndex].line.text) != nil
+            for p in pieces[(startIndex + 1)...] where !isScheduleWord {
+                guard p.minX - chain.last!.maxX <= max(0.04, h * 3), !overlapsNeighbour(p.minX, p.maxX) else { break }
+                chain.append(p)
+            }
+            let text = chain.map(\.line.text).joined(separator: " ").trimmingCharacters(in: .whitespaces)
+            let confidence = chain.map(\.line.confidence).reduce(0, +) / Double(chain.count)
+            // Squashed boxes are unreliable, so an equally confident re-read of them wins too.
+            let squashed = b.height < medianH * 0.6
+            guard !text.isEmpty, confidence > line.confidence || (squashed && confidence >= line.confidence) else { continue }
+            let minX = chain.first!.minX, maxX = chain.last!.maxX
+            result[i] = OCRLine(text: text, confidence: confidence,
+                                boundingBox: CGRect(x: minX, y: b.midY - h / 2, width: max(maxX - minX, 0.01), height: h))
+        }
+        return result
     }
 }

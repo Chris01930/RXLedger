@@ -78,4 +78,33 @@ enum ImageProcessing {
         }
         return image.cgImage
     }
+
+    /// Stacks images top-to-bottom at a common width. Returns the composite and, per image, the
+    /// rect it occupies in the composite's normalized Vision space (origin bottom-left).
+    static func stackVertically(_ images: [CGImage], maxWidth: CGFloat = 1800) -> (CGImage, [CGRect])? {
+        guard !images.isEmpty else { return nil }
+        let width = min(maxWidth, images.map { CGFloat($0.width) }.max() ?? maxWidth)
+        let heights = images.map { (CGFloat($0.height) * width / CGFloat($0.width)).rounded() }
+        let total = heights.reduce(0, +)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        var top: CGFloat = 0
+        var rects: [CGRect] = []
+        let composite = UIGraphicsImageRenderer(size: CGSize(width: width, height: total), format: format).image { _ in
+            for (img, h) in zip(images, heights) {
+                UIImage(cgImage: img).draw(in: CGRect(x: 0, y: top, width: width, height: h))
+                rects.append(CGRect(x: 0, y: (total - top - h) / total, width: 1, height: h / total))
+                top += h
+            }
+        }
+        guard let cg = composite.cgImage else { return nil }
+        return (cg, rects)
+    }
+
+    /// Maps a normalized rect inside one stacked page into composite coordinates.
+    static func map(_ rect: CGRect, into page: CGRect) -> CGRect {
+        CGRect(x: page.minX + rect.minX * page.width, y: page.minY + rect.minY * page.height,
+               width: rect.width * page.width, height: rect.height * page.height)
+    }
 }

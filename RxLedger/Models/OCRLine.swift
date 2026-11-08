@@ -7,11 +7,15 @@ struct OCRLine: Codable, Equatable, Hashable {
     var text: String
     var confidence: Double
     var boundingBox: CGRect
+    /// Which close-up photo the line came from when several photos of one label were combined
+    /// (nil for a single photo). Boxes are then in the stacked composite image's coordinates.
+    var page: Int?
 
-    init(text: String, confidence: Double, boundingBox: CGRect) {
+    init(text: String, confidence: Double, boundingBox: CGRect, page: Int? = nil) {
         self.text = text
         self.confidence = confidence
         self.boundingBox = boundingBox
+        self.page = page
     }
 
     /// Converts plain text (one OCR line per text line) into lines with synthetic geometry,

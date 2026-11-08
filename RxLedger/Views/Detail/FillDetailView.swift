@@ -179,7 +179,7 @@ struct FillDetailView: View {
 
     private func startReparse() {
         let lines = fill.ocrLines.isEmpty ? OCRLine.fromPlainText(fill.rawOCRText ?? "") : fill.ocrLines
-        let result = CVSLabelParser().parse(lines: lines)
+        let result = CVSLabelParser().parse(pagedLines: lines)
         var annotations = FieldAnnotations(confidence: result.confidences)
         if let data = fill.imageData, let cg = UIImage(data: data)?.cgImage {
             for key in result.fields.keys {
