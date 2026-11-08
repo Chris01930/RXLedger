@@ -146,6 +146,14 @@ struct RealLayoutTests {
         #expect(r[.pharmacyNotes] == nil)
     }
 
+    /// "#" read as other characters in AUTH#/STORE# on small or zoomed text.
+    @Test(arguments: ["AUTH#: 111222333444555666", "AUTHt: 111222333444555666", "AUTHA: 111222333444555666",
+                      "AUTHO: 111222333444555666", "AUTHI: 111222333444555666", "AUTH*: 111222333444555666"])
+    func authHashVariants(line: String) {
+        let r = CVSLabelParser().parse(lines: [L(line, 0.124, 0.616, 0.839, 0.048)])
+        #expect(r[.authNumber] == "111222333444555666")
+    }
+
     @Test func letterBinSlot() {
         let r = CVSLabelParser().parse(lines: [L("NE", 0.2, 0.88, 0.09, 0.045), L("REF", 0.31, 0.885, 0.08, 0.028),
                                                L("Promised: 9/15/26, 8:00 PM", 0.43, 0.93, 0.25, 0.026)])

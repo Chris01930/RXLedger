@@ -97,4 +97,36 @@ struct PrivateSampleTests {
             try crop.jpegData(compressionQuality: 0.8)?.write(to: output.appendingPathComponent("context-\(key.rawValue).jpg"))
         }
     }
+
+    /// Partial close-ups / screenshots in `Tests/Private/CloseUps/`, each with `<name>.expected.json`.
+    /// Exercises the add-photo path (`supplement`) on images showing only a few fields.
+    static var closeUps: [URL] {
+        let dir = folder.appendingPathComponent("CloseUps")
+        let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+        return files.filter { ["heic", "jpg", "jpeg", "png"].contains($0.pathExtension.lowercased()) }.sorted { $0.path < $1.path }
+    }
+
+    @Test(.enabled(if: !closeUps.isEmpty))
+    func partialCloseUps() async throws {
+        for url in Self.closeUps {
+            let name = url.deletingPathExtension().lastPathComponent
+            let image = try #require(UIImage(contentsOfFile: url.path))
+            let r = try await OCRService().supplement(existingImage: nil, existingLines: [], with: image)
+            var dump = "--- lines ---\n" + r.lines.map { l in
+                String(format: "[%.3f %.3f %.3f %.3f] %.2f  ", l.boundingBox.minX, l.boundingBox.minY,
+                       l.boundingBox.width, l.boundingBox.height, l.confidence) + l.text
+            }.joined(separator: "\n")
+            dump += "\n--- parsed ---\n" + r.parse.fields.keys.sorted { $0.rawValue < $1.rawValue }
+                .map { "\($0.rawValue): \(r.parse[$0] ?? "")" }.joined(separator: "\n")
+            try? dump.write(to: url.deletingPathExtension().appendingPathExtension("dump.txt"), atomically: true, encoding: .utf8)
+
+            let expectedURL = url.deletingPathExtension().appendingPathExtension("expected.json")
+            guard let data = try? Data(contentsOf: expectedURL),
+                  let expected = try? JSONDecoder().decode([String: String].self, from: data) else { continue }
+            for (k, v) in expected {
+                guard let key = FieldKey(rawValue: k) else { continue }
+                #expect(r.parse[key] == v, "\(name): \(k)")
+            }
+        }
+    }
 }

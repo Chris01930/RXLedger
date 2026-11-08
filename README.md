@@ -49,6 +49,8 @@ Put real label photos (`.heic`/`.jpg`/`.png`) in `Tests/Private/`. The folder is
 
 Use the dump to see exactly what Vision read when a field comes out wrong.
 
+Partial close-ups or screenshots go in `Tests/Private/CloseUps/`, each with a `<name>.expected.json` listing only the fields that photo should yield. They run through the add-photo path, and a dump is written next to each.
+
 ### Adding real fixtures
 
 Put OCR text in `Tests/Fixtures/<name>.txt`, one OCR line per text line, in reading order. You can copy it from **Fill detail → Raw OCR text** after a scan. Leading spaces are treated as column positions, which matters for the schedule boxes. Then add a test that calls `loadFixture("<name>")`. Remove personal details before committing real labels.

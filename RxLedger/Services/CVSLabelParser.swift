@@ -264,7 +264,7 @@ struct CVSLabelParser {
             case "S": out += "[S5]"
             case "B": out += "[B8]"
             case "Z": out += "[Z2]"
-            case "#": out += #"\s*[#HA4O0I1l|]?\s*"#  // "#" is often read as H, A, O or I
+            case "#": out += #"\s*[#HA4O0I1l|tTfF*]?\s*"#  // "#" is often read as H, A, O, I, t or F
             case "(": out += #"\(?"#
             case ")": out += #"\)?"#
             case "&": out += #"(?:&|AND|8)?"#
