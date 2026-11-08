@@ -29,6 +29,12 @@ final class AppState {
     /// A fill row to flash briefly (e.g. right after saving).
     var highlightedFillID: UUID?
 
+    init() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-scanImagePath") { selectedTab = .capture }
+        #endif
+    }
+
     /// Switch to the Fills tab and highlight a fill.
     func showSaved(_ fill: Fill) {
         fillsPath = []

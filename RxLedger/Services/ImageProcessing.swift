@@ -61,4 +61,21 @@ enum ImageProcessing {
         guard let cropped = cgImage.cropping(to: pixelRect) else { return nil }
         return UIImage(cgImage: cropped)
     }
+
+    /// Upscales with high-quality interpolation and a white margin, which helps Vision with isolated glyphs.
+    static func upscale(_ cgImage: CGImage, factor: CGFloat, margin: CGFloat = 40) -> CGImage? {
+        let size = CGSize(width: CGFloat(cgImage.width) * factor + margin * 2,
+                          height: CGFloat(cgImage.height) * factor + margin * 2)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            ctx.cgContext.interpolationQuality = .high
+            UIImage(cgImage: cgImage).draw(in: CGRect(x: margin, y: margin,
+                                                      width: size.width - margin * 2, height: size.height - margin * 2))
+        }
+        return image.cgImage
+    }
 }
