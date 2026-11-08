@@ -24,7 +24,8 @@ extension CVSLabelParser {
         #"PHARMACY\s*ADVI|MACY\s*ADVI|ADVICE\W*$"#,
         #"see\s*back\s*for\s*more"#,
         #"www\.|\.com\b"#,
-        #"^\s*(OPEN|HERE)\b.{0,3}$"#,
+        // The red "OPEN HERE ▶" tab: as one line or two, arrow read as any stray character.
+        #"^\W*(?:[O0]PEN|HERE)(?:\W+(?:[O0]PEN|HERE))?\W*\w?\W*$"#,
     ].map { regex($0) }
 
     static func prepare(_ input: [OCRLine]) -> Prepared {

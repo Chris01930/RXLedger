@@ -1076,16 +1076,28 @@ struct CVSLabelParser {
 
         static let logo = CVSLabelParser.regex(#"cvs\s*pharmacy\s*\W*$"#)
 
+        /// Notes are only what's printed inside the box under "Notes from the Pharmacy". That text sits
+        /// close to the heading and line to line; the CVS logo and the red "OPEN HERE" tab below the box
+        /// are separated by a much larger gap, so reading stops at the first big vertical gap. A big gap
+        /// right under the heading means the box is empty (the usual case).
         mutating func parseNotes() {
             guard let header = notesHeader else { return }
+            let heights = rows.flatMap { $0.segments.map(\.line.boundingBox.height) }.sorted()
+            let lineHeight = heights.isEmpty ? 0.02 : heights[heights.count / 2]
+            let maxGap = lineHeight * 2.5
+
             var parts: [String] = []
             var firstRow: Int?
+            var previousBottom = rows[header].box.minY
             for i in (header + 1)..<max(rows.count, header + 1) {
                 if !hits(in: i).isEmpty { break }
+                let gap = previousBottom - rows[i].box.maxY
+                if gap > maxGap { break }
+                previousBottom = rows[i].box.minY
                 let t = leadingText(i)
                 guard !t.isEmpty else { continue }
                 // The CVS logo at the foot of the label.
-                if Self.logo.firstMatch(in: t, range: NSRange(location: 0, length: (t as NSString).length)) != nil, t.count < 20 { continue }
+                if Self.logo.firstMatch(in: t, range: NSRange(location: 0, length: (t as NSString).length)) != nil, t.count < 20 { break }
                 parts.append(t)
                 if firstRow == nil { firstRow = i }
             }

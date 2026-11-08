@@ -118,6 +118,34 @@ struct RealLayoutTests {
         #expect(r[.pharmacyNotes] == "Vaccines you may be due for:\n-Flu")
     }
 
+    /// Notes stop at the box: the logo and "OPEN HERE ▶" below it are never included, even when read
+    /// as one line or when the logo isn't read at all.
+    @Test(arguments: [["OPEN HERE ▶"], ["OPEN HERE D"], ["0PEN", "HERE >"], ["Open here"]])
+    func notesExcludeFooter(footer: [String]) {
+        var ls = [
+            L("AMOUNT DUE: $8.67", 0.511, 0.205, 0.141, 0.015),
+            L("Notes from the Pharmacy", 0.210, 0.188, 0.293, 0.019),
+            L("Vaccines you may be due for:", 0.348, 0.164, 0.253, 0.019),
+            L("-Flu", 0.348, 0.149, 0.034, 0.015),
+        ]
+        for (i, f) in footer.enumerated() {
+            ls.append(L(f, 0.70, 0.050 - Double(i) * 0.013, 0.06, 0.012, 0.5))
+        }
+        let r = CVSLabelParser().parse(lines: ls)
+        #expect(r[.pharmacyNotes] == "Vaccines you may be due for:\n-Flu")
+    }
+
+    @Test func emptyNotesBoxStaysEmpty() {
+        let r = CVSLabelParser().parse(lines: [
+            L("AMOUNT DUE: $8.67", 0.511, 0.205, 0.141, 0.015),
+            L("Notes from the Pharmacy", 0.210, 0.188, 0.293, 0.019),
+            // Nothing inside the box; only the footer far below it.
+            L("Something printed below the box", 0.30, 0.060, 0.25, 0.015, 0.3),
+            L("OPEN HERE", 0.70, 0.045, 0.06, 0.012),
+        ])
+        #expect(r[.pharmacyNotes] == nil)
+    }
+
     @Test func letterBinSlot() {
         let r = CVSLabelParser().parse(lines: [L("NE", 0.2, 0.88, 0.09, 0.045), L("REF", 0.31, 0.885, 0.08, 0.028),
                                                L("Promised: 9/15/26, 8:00 PM", 0.43, 0.93, 0.25, 0.026)])
